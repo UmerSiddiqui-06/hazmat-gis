@@ -1,0 +1,12 @@
+streamlit
+pandas
+geopandas
+folium
+streamlit-folium
+geopy
+openpyxl
+fuzzywuzzy
+python-Levenshtein
+plotly
+streamlit-plotly-events
+streamlit-aggrid
