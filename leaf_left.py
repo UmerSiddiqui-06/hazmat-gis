@@ -15,6 +15,28 @@ from streamlit_plotly_events import plotly_events
 import datetime
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from st_aggrid.shared import JsCode
+import re
+import utitlity
+
+st.set_page_config(layout="wide")
+
+from streamlit_cookies_manager import EncryptedCookieManager
+import warnings
+import yagmail
+
+
+
+cookies = EncryptedCookieManager(prefix='leafapp_',password='leaf_left_000')
+if not cookies.ready():
+    st.stop()
+
+
+# Connection with database for Sign-in/Sign-up
+conn = utitlity.sqlpy()
+
+# Ignore deprecation warnings from Streamlit
+warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
+
 @st.cache_data
 def load_data():
     data = pd.read_excel('News GIS.xlsx', engine='openpyxl')
@@ -232,24 +254,258 @@ def create_heatmap(heat_data):
     
     return heatmap
 
-def main():
-    st.set_page_config(layout="wide")
-    st.title("CBRNE Incident Map")
+def valid_email(email):
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    return re.match(email_regex, email) is not None
 
+def valid_password(password):
+    return (len(password) >= 8 and 
+            re.search(r'[A-Z]', password) and 
+            re.search(r'[a-z]', password) and 
+            re.search(r'\d', password))
+
+def password_generator():
+    return random.randint(100000,999999)
+
+def send_email_code(recipient):
+    email = "company_email"
+    email_password = "xyz"
+    subject = "Your Verification Code for CBRNE"
+    code = password_generator()
+    body = f"""
+    Dear User,
+
+    Thank you for registering with CBRNE. Please use the following code to verify your account:
+
+    **{code}**
+
+    If you did not request this code, please disregard this email.
+
+    Best regards,
+    The CBRNE Team
+    """
+    try:
+        yag = yagmail.SMTP(email, email_password)
+        yag.send(to=recipient, subject=subject, contents=body)
+    except Exception as e:
+        st.error(f"Failed to send verification code")
+    return code
+def send_request_to_admin(user_email):
+    email = "company_email"
+    email_password = "xyz"
+    admin_email = "admin_email"
+    subject = "New User Registration Request"
+    body = f"""
+    Admin,
+
+    A new user has requested to register for CBRNE. Below are the user's details:
+
+    Email: {user_email}
+
+    
+    Please review the registration request here.
+    xyz.com
+
+    Best regards,
+    The CBRNE System
+    """
+    try:
+        yag = yagmail.SMTP(email, email_password)
+        yag.send(to=admin_email, subject=subject, contents=body)
+    except Exception as e:
+        st.error(f"Failed to send verification code")
+def code_verification(code,email,password):
+    columns = st.columns((2.5,5,2.5))
+    with columns[1]:
+        with st.container(border=True):
+            passcode = st.number_input('Enter 6-digit verification code: ',0,999999)
+            if st.button('Verify'):
+                if not passcode:
+                    st.warning('Please enter valid passcode')
+                else:
+                    if code == passcode:
+                        conn.register_user(email,password)
+                        st.success('Your Registration Request has been submitted.')
+                        send_request_to_admin(email)
+                        st.session_state.page = 'Login'
+                        st.rerun()
+                    else:
+                        st.error('Wrong Code')
+
+def rejected_page():
+    columns = st.columns((2,6,2))
+    with columns[1]:
+        with st.container(border=True):
+            st.subheader('Sorry to Say 😔')
+            st.error('Your request was not accepted.')
+            if st.button('Back to Login Page'):
+                st.session_state.page = 'Login'
+                st.rerun()
+
+def pending_page():
+    columns = st.columns((2,6,2))
+    with columns[1]:
+        with st.container(border=True):
+            st.subheader('Please Wait ⏳')
+            st.warning('Your request has not been accepted yet.')
+            if st.button('Back to Login Page'):
+                st.session_state.page = 'Login'
+                st.rerun()
+
+def register_page():
+    columns = st.columns((2.5,5,2.5))
+    with columns[1]:
+        with st.container(border=True):
+            st.subheader('Register')
+            email = st.text_input('Email')
+            password = st.text_input('Password',type='password')
+            if st.button('Register'):
+                if not email:
+                    st.warning('Please enter email')
+                elif not password:
+                    st.warning('Please enter passowrd')
+                else:
+                    if conn.is_user_exist(email):
+                        st.warning('User Already Exists')
+                    else:
+                        if valid_email(email):
+                            if valid_password(password):
+                                status = conn.get_status(email)
+                                if status == 'Rejected':
+                                    st.session_state.page = 'Rejected'
+                                    st.rerun()
+                                elif status == 'Pending':
+                                    st.session_state.page = 'Pending'
+                                    st.rerun()
+                                else:
+                                    code = send_email_code(email)
+                                    st.session_state.code = code
+                                    st.session_state.reg_email = email
+                                    st.session_state.reg_password = password
+                                    st.session_state.page = 'code_verification'
+                                    st.rerun()
+                            else:
+                                st.warning('Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters.')
+                        else:
+                            st.warning('Invalid Email, Try Again')
+            if st.button('Back to Login'):
+                st.session_state.page = 'Login'
+                st.rerun()
+def login_page():
+    columns = st.columns((2.5,5,2.5))
+    with columns[1]:
+        with st.container(border=True):
+            st.subheader('Login')
+            email = st.text_input('Email')
+            password = st.text_input('Password',type='password')
+            if st.button('Login'):
+                if not email:
+                    st.warning('Please enter email')
+                elif not password:
+                    st.warning('Please enter password')
+                else:
+                    is_admin = conn.check_login_admin(email,password)
+                    is_user = conn.check_login_user(email,password)
+                    if is_admin:
+                        st.session_state.logged_in = True
+                        cookies['logged_in'] =  'True'
+                        cookies['user_type'] = 'admin'
+                        cookies['page'] = 'main_display'
+                        cookies.save()  
+                        st.rerun()
+                    elif is_user == 'Accepted':
+                        st.session_state.logged_in = True
+                        cookies['logged_in'] =  'True'
+                        cookies['user_type'] = 'user'
+                        cookies.save() 
+                        st.rerun()
+                    elif is_user == 'Rejected':
+                        st.session_state.page = 'Rejected'
+                        st.rerun()
+                    elif is_user == 'Pending':
+                        st.session_state.page = 'Pending'
+                        st.rerun()
+                    else:
+                        st.error('Wrong Password, Try Again')
+            col1, col2 = st.columns((3.2,6.8))
+            col1.write("Don't have an account? ")
+            if col2.button('Register'):
+                st.session_state.page = 'Register'
+                st.rerun()
+
+def user_management():
+    users = conn.get_users()
+    if st.sidebar.button('Go Back'):
+        st.session_state.page = 'main_display'
+        cookies['page'] = 'main_display'
+        cookies.save()
+        st.rerun()
+
+    if users:
+        df = pd.DataFrame(users,columns=['ID','Email','Password','Status'])
+
+        gb = GridOptionsBuilder.from_dataframe(df)
+        gb.configure_pagination(paginationAutoPageSize=True) 
+        gb.configure_side_bar()  
+        gb.configure_selection('single', use_checkbox=True)
+        gridOptions = gb.build()
+
+        grid_response = AgGrid(
+            df, 
+            gridOptions=gridOptions,
+            enable_enterprise_modules=True,
+            update_mode='MODEL_CHANGED', 
+            fit_columns_on_grid_load=True
+        )
+
+        selected_rows = grid_response.get('selected_rows', [])
+
+        if selected_rows is not None:
+
+            st.write("Selected User(s):")
+            st.write(selected_rows)
+            already_status = selected_rows.iloc[0,3]
+
+            status_change = st.radio("Change the status of the selected user(s):",('Accepted', 'Rejected'))
+            
+            if st.button("Submit"):
+                if already_status == status_change:
+                    st.warning(f'Status is already {already_status}')
+                else:
+                    id = selected_rows.iloc[0,0]
+                    if status_change == 'Accepted':
+                        conn.accept_user(id)
+                    else:
+                        conn.reject_user(id)
+                    st.success('Status Changed Successfully')
+
+def main_display(user_type):
+
+    if user_type == 'admin':
+        if st.sidebar.button('User Managment',use_container_width=True):
+            st.session_state.page = 'user_management'
+            cookies['page'] = 'user_management'
+            st.rerun()
+
+    if st.sidebar.button('Logout',use_container_width=True):
+        cookies['logged_in'] = 'False'
+        st.session_state.page = 'Login'
+        st.session_state.logged_in = False
+        st.rerun()
     data = load_data()
     world = load_world()
-    
+        
     data = preprocess_data(data)
 
     search_term = st.text_input("Search incidents", "")
-    
+        
     st.sidebar.header("Filters")
     type_filter = st.sidebar.multiselect("Type", data['Type'].unique())
     category_filter = st.sidebar.multiselect("Category", data['Category'].unique())
     country_filter = st.sidebar.multiselect("Country", data['Country'].unique())
     impact_filter = st.sidebar.multiselect("Impact", data['Impact'].unique())
     severity_filter = st.sidebar.multiselect("Severity", data['Severity'].unique())
-    
+        
     st.sidebar.header("Date Range")
     date_filter = st.sidebar.radio(
         "Select time range:",
@@ -351,7 +607,7 @@ def main():
         country_counts = filtered_data['Country'].value_counts().reset_index()
         country_counts.columns = ['Country', 'Count']
 
-     
+    
         color_sequence = px.colors.qualitative.Set3  
         fig2 = px.bar(country_counts, x='Country', y='Count', 
                     title="Distribution by Country",
@@ -502,5 +758,57 @@ def main():
 
         By accessing and using this dashboard, you acknowledge and agree that the creators and maintainers of the HazMat GIS Dashboard are not liable for any inaccuracies, omissions, or any outcomes resulting from the use of this information. Use of the dashboard is at your own risk, and you accept full responsibility for any decisions or actions taken based on the data provided.
         """)
+
+def main():
+    st.title("CBRNE Incident Map")
+
+    if 'page' not in st.session_state:
+        st.session_state.page = 'Login'
+
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+    if 'user_type' not in st.session_state:
+        st.session_state.user_type = None
+    if 'code' not in st.session_state:
+        st.session_state.code = None
+    if 'reg_email' not in st.session_state:
+        st.session_state.reg_email = None
+    if 'reg_password' not in st.session_state:
+        st.session_state.reg_password = None
+
+    if cookies.get('user_type') == 'admin':
+        st.session_state.user_type = 'admin'
+    elif cookies.get('user_type') == 'user':
+        st.session_state.user_type = 'user'
+
+
+    if st.session_state.page == 'code_verification':
+        code_verification(st.session_state.code,st.session_state.reg_email,st.session_state.reg_password)
+
+    if st.session_state.page == 'Rejected':
+        rejected_page()
+
+    if st.session_state.page == 'Pending':
+        pending_page()
+
+
+    if cookies.get('logged_in') == 'True':
+        st.session_state.logged_in = True
+        st.session_state.page = cookies.get('page')
+
+    if not st.session_state.logged_in:    
+        if st.session_state.page != 'Signed-in':
+            if st.session_state.page == 'Login':
+                login_page()
+            if st.session_state.page == 'Register':
+                register_page()
+    else:
+        if st.session_state.page == 'user_management':
+            user_management()
+        else:
+            cookies['page'] = 'main_display'
+            cookies.save()
+            main_display(st.session_state.user_type)
+
 if __name__ == "__main__":
     main()
