@@ -432,12 +432,33 @@ def login_page():
             if col2.button('Register'):
                 st.session_state.page = 'Register'
                 st.rerun()
-
+def upload_data():
+    new_data = st.file_uploader('Select File', type='xlsx')
+    if new_data and st.button('Concatenate'):
+        old_data = pd.read_excel('News GIS.xlsx')
+        new_data = pd.read_excel(new_data)
+        if len(new_data.columns) == len(old_data.columns) and (new_data.dtypes.values == old_data.dtypes.values).all():
+            result = pd.concat([old_data,new_data],axis=0)
+            result.to_excel('News GIS.xlsx',index=False)
+            st.success('Data concatenated successfully')
+        else:
+            st.warning('Invalid Data, Try again with different file')
+    if st.sidebar.button('Go Back'):
+        st.session_state.page = 'user_management'
+        cookies['page'] = 'user_management'
+        cookies.save()
+        st.rerun()
 def user_management():
     users = conn.get_users()
     if st.sidebar.button('Go Back'):
         st.session_state.page = 'main_display'
         cookies['page'] = 'main_display'
+        cookies.save()
+        st.rerun()
+
+    if st.sidebar.button('Upload Data'):
+        st.session_state.page = 'upload_data'
+        cookies['page'] = 'upload_data'
         cookies.save()
         st.rerun()
 
@@ -805,6 +826,8 @@ def main():
     else:
         if st.session_state.page == 'user_management':
             user_management()
+        elif st.session_state.page == 'upload_data':
+            upload_data()
         else:
             cookies['page'] = 'main_display'
             cookies.save()
