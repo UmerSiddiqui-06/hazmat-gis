@@ -268,8 +268,8 @@ def password_generator():
     return random.randint(100000,999999)
 
 def send_email_code(recipient):
-    email = "company_email"
-    email_password = "xyz"
+    email = "HazMat.GIS@gmail.com"
+    email_password = "edlxeiepcyjasoqg"
     subject = "Your Verification Code for CBRNE"
     code = password_generator()
     body = f"""
@@ -291,9 +291,9 @@ def send_email_code(recipient):
         st.error(f"Failed to send verification code")
     return code
 def send_request_to_admin(user_email):
-    email = "company_email"
-    email_password = "xyz"
-    admin_email = "admin_email"
+    email = "HazMat.GIS@gmail.com"
+    email_password = "edlxeiepcyjasoqg"
+    admin_email = "HazMat.GIS@gmail.com"
     subject = "New User Registration Request"
     body = f"""
     Admin,
