@@ -17,6 +17,9 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from st_aggrid.shared import JsCode
 import re
 import utitlity
+import time
+import io
+import base64
 
 st.set_page_config(layout="wide")
 
@@ -31,7 +34,7 @@ if not cookies.ready():
     st.stop()
 
 
-# Connection with database for Sign-in/Sign-up
+# Connection with database
 conn = utitlity.sqlpy()
 
 # Ignore deprecation warnings from Streamlit
@@ -414,7 +417,10 @@ def login_page():
                         cookies.save()  
                         st.rerun()
                     elif is_user == 'Accepted':
+                        conn.add_new_login(email)
+                        st.session_state.user_email = email
                         st.session_state.logged_in = True
+                        cookies['user_email'] = email
                         cookies['logged_in'] =  'True'
                         cookies['user_type'] = 'user'
                         cookies.save() 
@@ -432,84 +438,159 @@ def login_page():
             if col2.button('Register'):
                 st.session_state.page = 'Register'
                 st.rerun()
-def upload_data():
-    new_data = st.file_uploader('Select File', type='xlsx')
-    if new_data and st.button('Concatenate'):
-        old_data = pd.read_excel('News GIS.xlsx')
-        new_data = pd.read_excel(new_data)
-        if len(new_data.columns) == len(old_data.columns) and (new_data.dtypes.values == old_data.dtypes.values).all():
-            result = pd.concat([old_data,new_data],axis=0)
-            result.to_excel('News GIS.xlsx',index=False)
-            st.success('Data concatenated successfully')
-        else:
-            st.warning('Invalid Data, Try again with different file')
-    if st.sidebar.button('Go Back'):
-        st.session_state.page = 'user_management'
-        cookies['page'] = 'user_management'
-        cookies.save()
-        st.rerun()
-def user_management():
-    users = conn.get_users()
+
+def admin_panel():
+    
     if st.sidebar.button('Go Back'):
         st.session_state.page = 'main_display'
         cookies['page'] = 'main_display'
+        cookies['selected_tab'] = 'login_history'
         cookies.save()
         st.rerun()
 
-    if st.sidebar.button('Upload Data'):
-        st.session_state.page = 'upload_data'
-        cookies['page'] = 'upload_data'
-        cookies.save()
-        st.rerun()
+    col1, col2, col3, col4 = st.tabs(['Login History','Download History','Manage Access','Upload Data'])
 
-    if users:
-        df = pd.DataFrame(users,columns=['ID','Email','Password','Status'])
+    with col1:
+        users = conn.get_users()
+        st.subheader('Select Users to See Login details: ')
+        if users:
+            df = pd.DataFrame(users,columns=['ID','Email','Password','Status'])
+            gb = GridOptionsBuilder.from_dataframe(df)
+            gb.configure_pagination(paginationAutoPageSize=True) 
+            gb.configure_side_bar()  
+            gb.configure_selection('multiple', use_checkbox=True)
+            gridOptions = gb.build()
 
+            grid_response = AgGrid(
+                df, 
+                gridOptions=gridOptions,
+                enable_enterprise_modules=True,
+                update_mode='MODEL_CHANGED', 
+                fit_columns_on_grid_load=True
+            )
+
+            selected_users = grid_response.get('selected_rows', [])
+
+            if selected_users is not None:
+                st.subheader('Login Information for Selected Users: ')
+                users_emails = [user for user in selected_users.iloc[:,1]]   
+                users_data = conn.get_login_info(users_emails)
+                users_data = pd.DataFrame(users_data,columns=['Email','Time'])
+                users_data['Time'] = pd.to_datetime(users_data['Time'])
+
+
+                selected_filter = st.selectbox('Select Time Filter', ['All Time', 'This Month', 'Today', 'Custom Range'])
+                
+                temp_data = users_data.copy()
+                if not temp_data.empty:
+                    if selected_filter == 'This Month':
+                        current_month = datetime.datetime.now().month
+                        temp_data = temp_data[temp_data['Time'].dt.month == current_month]
+                    elif selected_filter == 'Today':
+                        current_date = datetime.datetime.now().date()
+                        temp_data = temp_data[temp_data['Time'].dt.date == current_date]
+                    elif selected_filter == 'Custom Range':
+                        start_date = st.date_input('Start Date',temp_data['Time'].min())
+                        end_date = st.date_input('End Date',temp_data['Time'].max())
+                        temp_data = temp_data[(temp_data['Time'].dt.date >= start_date) & (temp_data['Time'].dt.date <= end_date)]
+                    
+                    st.write(temp_data)
+                else:
+                    st.warning('Not Enough Data')
+        else:
+            st.warning('Not Enough Data')
+    with col2:
+        data = conn.get_download_history()
+        df = pd.DataFrame(data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
         gb = GridOptionsBuilder.from_dataframe(df)
-        gb.configure_pagination(paginationAutoPageSize=True) 
-        gb.configure_side_bar()  
-        gb.configure_selection('single', use_checkbox=True)
+        gb.configure_pagination(True)
+        for col in df.columns:
+            gb.configure_column(col, tooltipField=col)
         gridOptions = gb.build()
 
-        grid_response = AgGrid(
-            df, 
-            gridOptions=gridOptions,
-            enable_enterprise_modules=True,
-            update_mode='MODEL_CHANGED', 
-            fit_columns_on_grid_load=True
-        )
+        grid_response = AgGrid(df,gridOptions=gridOptions,fit_columns_on_grid_load=True)
+    with col3:
+        users = conn.get_users()
+        st.subheader('Select User to Change Status:')
+        if users:
+            df = pd.DataFrame(users,columns=['ID','Email','Password','Status'])
 
-        selected_rows = grid_response.get('selected_rows', [])
+            gb = GridOptionsBuilder.from_dataframe(df)
+            gb.configure_pagination(paginationAutoPageSize=True) 
+            gb.configure_side_bar()  
+            gb.configure_selection('single', use_checkbox=True)
+            gridOptions = gb.build()
 
-        if selected_rows is not None:
+            grid_response = AgGrid(
+                df, 
+                gridOptions=gridOptions,
+                enable_enterprise_modules=True,
+                update_mode='MODEL_CHANGED', 
+                fit_columns_on_grid_load=True
+            )
 
-            st.write("Selected User(s):")
-            st.write(selected_rows)
-            already_status = selected_rows.iloc[0,3]
+            selected_rows = grid_response.get('selected_rows', [])
 
-            status_change = st.radio("Change the status of the selected user(s):",('Accepted', 'Rejected'))
-            
-            if st.button("Submit"):
-                if already_status == status_change:
-                    st.warning(f'Status is already {already_status}')
-                else:
-                    id = selected_rows.iloc[0,0]
-                    if status_change == 'Accepted':
-                        conn.accept_user(id)
+            if selected_rows is not None:
+
+                st.write("Selected User(s):")
+                st.write(selected_rows)
+                already_status = selected_rows.iloc[0,3]
+
+                status_change = st.radio("Change the status of the selected user(s):",('Accepted', 'Rejected'))
+                
+                if st.button("Submit"):
+                    if already_status == status_change:
+                        st.warning(f'Status is already {already_status}')
                     else:
-                        conn.reject_user(id)
-                    st.success('Status Changed Successfully')
+                        id = selected_rows.iloc[0,0]
+                        if status_change == 'Accepted':
+                            conn.accept_user(id)
+                        else:
+                            conn.reject_user(id)
+                        st.success('Status Changed Successfully')
+                        time.sleep(1.5)
+                        st.rerun()
+    with col4:
+        new_data = st.file_uploader('Select File', type='xlsx')
+        if new_data:
+            if st.button('Concatenate'):
+                try:
+                    old_data = pd.read_excel('News GIS.xlsx')
+                    new_data = pd.read_excel(new_data)
+                    if len(new_data.columns) == len(old_data.columns) and (new_data.dtypes.values == old_data.dtypes.values).all():
+                        result = pd.concat([old_data, new_data], axis=0)
+                        result.to_excel('News GIS.xlsx', index=False)
+                        st.success('Data concatenated successfully')
+                        time.sleep(1.5)
+                        st.rerun()
+                    else:
+                        st.warning('Invalid Data, Try again with a different file.')
+                except Exception as e:
+                    st.error(f"Error occurred: {str(e)}")
 
-def main_display(user_type):
+def add_download_history(filters):
+    if filters[0] is not None:
+        filters_1 = [
+            ', '.join(record) if isinstance(record, list) and len(record) > 0 
+            else (None if isinstance(record, list) else record)
+            for record in filters
+        ]
+        conn.add_download_history(filters_1[0],filters_1[1],filters_1[2],filters_1[3],filters_1[4],filters_1[5],filters_1[6])
+
+
+def main_display(user_type,user_email):
 
     if user_type == 'admin':
-        if st.sidebar.button('User Managment',use_container_width=True):
-            st.session_state.page = 'user_management'
-            cookies['page'] = 'user_management'
+        if st.sidebar.button('Admin Panel',use_container_width=True):
+            st.session_state.page = 'admin_panel'
+            cookies['page'] = 'admin_panel'
             st.rerun()
 
     if st.sidebar.button('Logout',use_container_width=True):
+        cookies['user_email'] = 'False'
         cookies['logged_in'] = 'False'
+        #cookies.save()
         st.session_state.page = 'Login'
         st.session_state.logged_in = False
         st.rerun()
@@ -719,15 +800,11 @@ def main_display(user_type):
         df_display = filtered_data[display_columns].copy()
         df_display['Date'] = df_display['Date'].dt.strftime('%d-%m-%Y')
 
-        # Add export button
-        csv = df_display.to_csv(index=False)
-        st.download_button(
-            label="Export Data",
-            data=csv,
-            file_name="filtered_data.csv",
-            mime="text/csv",
-        )
 
+        csv = df_display.to_csv(index=False)
+        filters = [user_email,type_filter,category_filter,country_filter,impact_filter,severity_filter,date_filter]
+        st.download_button(label="Download Data",data=csv,file_name="filtered_data.csv",mime="text/csv",on_click=add_download_history,args=[filters])
+ 
         gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
         gb.configure_column("Category", minWidth=100)
         gb.configure_column("Title", minWidth=400)
@@ -796,6 +873,10 @@ def main():
         st.session_state.reg_email = None
     if 'reg_password' not in st.session_state:
         st.session_state.reg_password = None
+    if 'selected_tab' not in st.session_state:
+        st.session_state.selected_tab = None
+    if 'user_email' not in st.session_state:
+        st.session_state.user_email = None
 
     if cookies.get('user_type') == 'admin':
         st.session_state.user_type = 'admin'
@@ -824,14 +905,15 @@ def main():
             if st.session_state.page == 'Register':
                 register_page()
     else:
-        if st.session_state.page == 'user_management':
-            user_management()
-        elif st.session_state.page == 'upload_data':
-            upload_data()
+        if st.session_state.page == 'admin_panel':
+            admin_panel()
         else:
             cookies['page'] = 'main_display'
             cookies.save()
-            main_display(st.session_state.user_type)
+            st.session_state.user_email = cookies.get('user_email',None)
+            if st.session_state.user_email == 'False':
+                st.session_state.user_email = None
+            main_display(st.session_state.user_type,st.session_state.user_email)
 
 if __name__ == "__main__":
     main()

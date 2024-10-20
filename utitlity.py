@@ -2,7 +2,7 @@ import sqlite3
 
 class sqlpy:
     def __init__(self):
-        self.conn = sqlite3.connect('my_database.db')
+        self.conn = sqlite3.connect('my_database.db',check_same_thread=False)
         self.cursor = self.conn.cursor()
 
         # Create the users table
@@ -17,6 +17,24 @@ class sqlpy:
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS admin (
                 email VARCHAR(255),
                 password VARCHAR(255)
+                );""")
+        
+        # Create the login_history table
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS login_history(
+                email VARCHAR(255),
+                time DATETIME                        
+                );""")
+        
+        # Create the download_history
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS download_history(
+                Email VARCHAR(255),
+                Time DATETIME,
+                Type VARCHAR(255),
+                Category VARCHAR(255),
+                Country VARCHAR(255),
+                Impact VARCHAR(255),
+                Severity VARCHAR(255),
+                Date VARCHAR(255)            
                 );""")
         
         # Insert temporary user record
@@ -87,7 +105,30 @@ class sqlpy:
             return True
         else:
             return False
+    
+    def add_new_login(self,email):
+        self.cursor.execute('INSERT INTO login_history (email, time) VALUES (?, CURRENT_TIMESTAMP)', (email,))
+        self.conn.commit()
+    
+    def get_login_info(self,users_emails):
+        data = []
+        for email in users_emails:
+            self.cursor.execute('SELECT * FROM login_history WHERE email = ?',(email,))
+            temp = self.cursor.fetchall()
+            if temp:
+                for record in temp:
+                    data.append(record)
+        return data
+    
+    def add_download_history(self,email,type,category,country,impact,severity,date):
+        self.cursor.execute("""INSERT INTO download_history (Email,Time,Type,Category,Country,Impact,Severity,Date) 
+            VALUES (?,CURRENT_TIMESTAMP,?,?,?,?,?,?)""",(email,type,category,country,impact,severity,date))
+        self.conn.commit()
 
+    def get_download_history(self):
+        self.cursor.execute("SELECT * FROM download_history")
+        data = self.cursor.fetchall()
+        return data
 
         
 
