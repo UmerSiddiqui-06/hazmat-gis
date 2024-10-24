@@ -16,7 +16,8 @@ class sqlpy:
         # Create the admin table
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS admin (
                 email VARCHAR(255),
-                password VARCHAR(255)
+                password VARCHAR(255),
+                chatgpt BOOL            
                 );""")
         
         # Create the login_history table
@@ -47,7 +48,7 @@ class sqlpy:
         self.cursor.execute('SELECT * FROM admin')
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO admin (email, password) VALUES (?, ?)", ('admin', '0000'))
+            self.cursor.execute("INSERT INTO admin (email, password, chatgpt) VALUES (?, ?, ?)", ('admin', '0000',0))
         self.conn.commit()
 
     def get_status(self,email):
@@ -129,7 +130,18 @@ class sqlpy:
         self.cursor.execute("SELECT * FROM download_history")
         data = self.cursor.fetchall()
         return data
+    
+    def change_gpt_status(self):
+        self.cursor.execute('SELECT chatgpt from admin')
+        chatgpt = self.cursor.fetchone()[0]
+        chatgpt = chatgpt ^ 1
+        self.cursor.execute('UPDATE admin SET chatgpt = ? ',(chatgpt,))
+        self.conn.commit()
 
+    def get_gpt_status(self):
+        self.cursor.execute('SELECT chatgpt from admin')
+        chatgpt = self.cursor.fetchone()[0]
+        return chatgpt
         
 
         

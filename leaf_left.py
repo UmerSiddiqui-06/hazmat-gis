@@ -20,6 +20,7 @@ import utitlity
 import time
 import io
 import base64
+from openai import OpenAI
 
 st.set_page_config(layout="wide")
 
@@ -438,15 +439,77 @@ def login_page():
             if col2.button('Register'):
                 st.session_state.page = 'Register'
                 st.rerun()
+def admin_panel_styling():
+    # st.sidebar.image('logo.png',width=120)
+    # Custom CSS to change the background color
+    page_bg_color = '''
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background-color: #161d25;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #577175;
+        }
+        </style>
+    '''
+
+    # Apply the custom background color
+    st.markdown(page_bg_color, unsafe_allow_html=True)
+    # Custom CSS to change the text color on the main page
+    custom_css = '''
+        <style>
+        /* Targeting the main content area */
+        [data-testid="stAppViewContainer"] .main {
+            color: #ffffff;  /* Change text color to white */
+        }
+
+        /* Target specific headers and text inside the main area */
+        [data-testid="stAppViewContainer"] h1, h2, h3, p {
+            color: #ffffff;  /* Change the text color of headers and paragraphs to white */
+        }
+        </style>
+    '''
+
+    # Apply the custom text color
+    st.markdown(custom_css, unsafe_allow_html=True)
+
+    # Custom CSS for changing the button color
+    custom_button_css = '''
+        <style>
+        /* Target all buttons */
+        div.stButton > button {
+            background-color: #161d25;  /* Button background color */
+            color: white;               /* Button text color */
+            border-radius: 10px;        /* Rounded corners */
+            border: 2px solid #577175;  /* Border color */
+            font-size: 16px;            /* Font size */
+            padding: 10px 24px;         /* Padding */
+        }
+        
+        /* Change button color on hover */
+        div.stButton > button:hover {
+            background-color: #a0b7a9;  /* New background on hover */
+            color: black;               /* New text color on hover */
+        }
+        </style>
+    '''
+
+    # Inject the custom CSS for the button
+    st.markdown(custom_button_css, unsafe_allow_html=True)
 
 def admin_panel():
     
+    admin_panel_styling()
+
     if st.sidebar.button('Go Back'):
         st.session_state.page = 'main_display'
         cookies['page'] = 'main_display'
         cookies['selected_tab'] = 'login_history'
         cookies.save()
         st.rerun()
+    
+    chatgpt = conn.get_gpt_status()
+    st.sidebar.toggle('Enable Chatgpt',on_change=conn.change_gpt_status,value=chatgpt)
 
     col1, col2, col3, col4 = st.tabs(['Login History','Download History','Manage Access','Upload Data'])
 
@@ -578,9 +641,27 @@ def add_download_history(filters):
         ]
         conn.add_download_history(filters_1[0],filters_1[1],filters_1[2],filters_1[3],filters_1[4],filters_1[5],filters_1[6])
 
-
+def chatgpt_explain(prompt):
+    client = OpenAI(api_key="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")
+    try:
+        completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"An Error Occured while summarizing: {e}"
+def summarize():
+    cookies['summarize'] = 'True'
+    # cookies.save()
 def main_display(user_type,user_email):
-
+    #st.sidebar.image('logo.png',width=120)
     if user_type == 'admin':
         if st.sidebar.button('Admin Panel',use_container_width=True):
             st.session_state.page = 'admin_panel'
@@ -588,11 +669,11 @@ def main_display(user_type,user_email):
             st.rerun()
 
     if st.sidebar.button('Logout',use_container_width=True):
-        cookies['user_email'] = 'False'
-        cookies['logged_in'] = 'False'
-        #cookies.save()
         st.session_state.page = 'Login'
         st.session_state.logged_in = False
+        cookies['user_email'] = 'False'
+        cookies['logged_in'] = 'False'
+        cookies['page'] = 'Login'
         st.rerun()
     data = load_data()
     world = load_world()
@@ -816,6 +897,7 @@ def main_display(user_type,user_email):
         gb.configure_column("Injury", minWidth=50)
         gb.configure_column('Link', minWidth=100)
         gb.configure_column("Severity", minWidth=100)
+        gb.configure_selection('single', use_checkbox=True)
         
         gb.configure_column(
             "Link",
@@ -838,15 +920,44 @@ def main_display(user_type,user_email):
 
         grid_options = gb.build()
 
-        AgGrid(
+        grid_response = AgGrid(
             df_display,
             gridOptions=grid_options,
-            updateMode=GridUpdateMode.VALUE_CHANGED,
+            pdateMode=GridUpdateMode.VALUE_CHANGED,
             allow_unsafe_jscode=True,
             height=400,
             theme="streamlit",
             fit_columns_on_grid_load=True,
         )
+
+        selected_row = grid_response.get('selected_rows', [])
+        chatgpt = conn.get_gpt_status()
+        if chatgpt:
+            if 'summarize' not in st.session_state:
+                st.session_state.summarize = None
+            if cookies.get('summarize') == 'True':
+                if selected_row is not None:
+                    # st.write(selected_row['Link'][0])
+                    with st.container(border=True):
+                        st.subheader('Summary')
+                        url = selected_row['Link'][0]
+                        title = selected_row['Title'][0]
+                        if cookies.get(title) is not None:
+                            response = cookies.get(title)
+                        else:
+                            prompt = f"URL: {url} Title: {title} "
+                            with open('prompt.txt', 'r') as file:
+                                content = file.read()
+                            prompt = prompt + content
+                            response = chatgpt_explain(prompt)
+                            cookies[title] = response
+                        st.write(response)
+
+                    cookies['summarize'] = 'False'
+            else:
+                if selected_row is not None:
+                    st.button('Summarize',on_click=summarize)
+                    
     st.markdown("---")  
     with st.expander("HazMat GIS Disclaimer", expanded=False):
         st.markdown("""
@@ -858,8 +969,8 @@ def main_display(user_type,user_email):
         """)
 
 def main():
-    st.title("CBRNE Incident Map")
-
+    st.title("HazMat GIS")
+    st.sidebar.image('logo.png',width=120)
     if 'page' not in st.session_state:
         st.session_state.page = 'Login'
 
@@ -878,10 +989,7 @@ def main():
     if 'user_email' not in st.session_state:
         st.session_state.user_email = None
 
-    if cookies.get('user_type') == 'admin':
-        st.session_state.user_type = 'admin'
-    elif cookies.get('user_type') == 'user':
-        st.session_state.user_type = 'user'
+    
 
 
     if st.session_state.page == 'code_verification':
@@ -897,17 +1005,22 @@ def main():
     if cookies.get('logged_in') == 'True':
         st.session_state.logged_in = True
         st.session_state.page = cookies.get('page')
+    else:
+        st.session_state.logged_in = False
 
     if not st.session_state.logged_in:    
-        if st.session_state.page != 'Signed-in':
-            if st.session_state.page == 'Login':
-                login_page()
-            if st.session_state.page == 'Register':
-                register_page()
+        if st.session_state.page == 'Login':
+            login_page()
+        if st.session_state.page == 'Register':
+            register_page()
     else:
         if st.session_state.page == 'admin_panel':
             admin_panel()
         else:
+            if cookies.get('user_type') == 'admin':
+                st.session_state.user_type = 'admin'
+            elif cookies.get('user_type') == 'user':
+                st.session_state.user_type = 'user'
             cookies['page'] = 'main_display'
             cookies.save()
             st.session_state.user_email = cookies.get('user_email',None)
