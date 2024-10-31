@@ -1,4 +1,5 @@
 import sqlite3
+import streamlit as st
 
 class sqlpy:
     def __init__(self):
@@ -10,6 +11,7 @@ class sqlpy:
                 user_id VARCHAR(255),
                 email VARCHAR(255),  
                 password VARCHAR(255),
+                chatgpt BOOL,
                 status VARCHAR(255)
                 );""")
 
@@ -42,13 +44,17 @@ class sqlpy:
         self.cursor.execute('SELECT * FROM users')
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO users (user_id,email,password,status) VALUES(?,?,?,?)",('u1','temp','0000','Accepted'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u1','temp','0000',0,'Accepted'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u2','temp1','0000',1,'Accepted'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u3','temp2','0000',1,'Accepted'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u4','temp3','0000',0,'Accepted'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u5','temp4','0000',1,'Accepted'))
 
         # Insert admin record
         self.cursor.execute('SELECT * FROM admin')
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO admin (email, password, chatgpt) VALUES (?, ?, ?)", ('admin', '0000',0))
+            self.cursor.execute("INSERT INTO admin (email, password, chatgpt) VALUES (?, ?, ?)", ('admin', '0000',1))
         self.conn.commit()
 
     def get_status(self,email):
@@ -68,7 +74,7 @@ class sqlpy:
         else:
             id = 'u' + str(data[0] + 1)
 
-        self.cursor.execute('INSERT INTO users (user_id,email,password,status) VALUES (?,?,?,?)',(id,email,password,'Pending'))
+        self.cursor.execute('INSERT INTO users (user_id,email,password,chatgpt,status) VALUES (?,?,?,?,?)',(id,email,password,0,'Pending'))
         self.conn.commit()
 
     def check_login_admin(self,email,password):
@@ -84,7 +90,7 @@ class sqlpy:
         if not data:
             return None
         else:
-            return data[3]
+            return data[4]
         
     def get_users(self):
         self.cursor.execute("SELECT * FROM users")
@@ -142,6 +148,19 @@ class sqlpy:
         self.cursor.execute('SELECT chatgpt from admin')
         chatgpt = self.cursor.fetchone()[0]
         return chatgpt
+    
+    def change_user_gpt_status(self,id):
+        self.cursor.execute('SELECT chatgpt FROM users WHERE user_id = ?',(id,))
+        chatgpt = self.cursor.fetchone()[0]
+        chatgpt = chatgpt ^ 1
+        self.cursor.execute('UPDATE users SET chatgpt = ? WHERE user_id = ?',(chatgpt,id))
+        self.conn.commit()
+
+    def get_user_gpt_status(self,email):
+        self.cursor.execute('SELECT chatgpt FROM users WHERE email = ?',(email,))
+        chatgpt = self.cursor.fetchone()[0]
+        return chatgpt
+
         
 
         

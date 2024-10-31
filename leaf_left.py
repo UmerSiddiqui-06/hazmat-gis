@@ -403,6 +403,7 @@ def login_page():
             email = st.text_input('Email')
             password = st.text_input('Password',type='password')
             if st.button('Login'):
+                print(st.session_state.logged_in)
                 if not email:
                     st.warning('Please enter email')
                 elif not password:
@@ -424,6 +425,7 @@ def login_page():
                         cookies['user_email'] = email
                         cookies['logged_in'] =  'True'
                         cookies['user_type'] = 'user'
+                        cookies['user_email'] = email
                         cookies.save() 
                         st.rerun()
                     elif is_user == 'Rejected':
@@ -507,17 +509,16 @@ def admin_panel():
         cookies['selected_tab'] = 'login_history'
         cookies.save()
         st.rerun()
-    
-    chatgpt = conn.get_gpt_status()
-    st.sidebar.toggle('Enable Chatgpt',on_change=conn.change_gpt_status,value=chatgpt)
 
-    col1, col2, col3, col4 = st.tabs(['Login History','Download History','Manage Access','Upload Data'])
+    chatgpt = conn.get_gpt_status()
+
+    col1, col2, col3, col4, col5 = st.tabs(['Login History','Download History','Manage Access','Upload Data','ChatGpt'])
 
     with col1:
         users = conn.get_users()
         st.subheader('Select Users to See Login details: ')
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','Status'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
             gb = GridOptionsBuilder.from_dataframe(df)
             gb.configure_pagination(paginationAutoPageSize=True) 
             gb.configure_side_bar()  
@@ -576,7 +577,7 @@ def admin_panel():
         users = conn.get_users()
         st.subheader('Select User to Change Status:')
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','Status'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
 
             gb = GridOptionsBuilder.from_dataframe(df)
             gb.configure_pagination(paginationAutoPageSize=True) 
@@ -631,6 +632,64 @@ def admin_panel():
                         st.warning('Invalid Data, Try again with a different file.')
                 except Exception as e:
                     st.error(f"Error occurred: {str(e)}")
+    with col5:
+        st.subheader('ChatGpt Status')
+        chatgpt = conn.get_gpt_status()
+        button_name = 'Turn Off' if chatgpt else 'Turn On'
+        button_gpt,status_gpt = st.columns((2,8))
+        with button_gpt:
+            if st.button(button_name):
+                conn.change_gpt_status()
+                st.rerun()
+        with status_gpt:
+            if chatgpt:
+                st.success('ChatGpt Enabled')
+            else:
+                st.error('ChatGpt Disabled')
+        users = conn.get_users()
+        if users:
+            users = pd.DataFrame(users)
+            status = users[3]
+            users = users.drop([2, 3, 4], axis=1)
+            users.columns = ['ID', 'Email']
+
+            header_col1, header_col2, header_col3 = st.columns((2, 5, 3))
+            with header_col1:
+                st.markdown("### ID")
+            with header_col2:
+                st.markdown("### Email")
+            with header_col3:
+                st.markdown("### Status")
+
+            
+
+            if 'toggle_states' not in st.session_state:
+                st.session_state.toggle_states = {f't{i}': status.iloc[i] for i in range(len(users))}
+
+            for i, row in users.iterrows():
+                # Create columns for each row dynamically
+                col1, col2, col3 = st.columns((2, 5, 3))
+                id = row['ID']
+                with col1:
+                    st.write(row['ID'])
+                with col2:
+                    st.write(row['Email'])
+                with col3:
+                    toggle_key = f't{i}'
+                    new_value = st.toggle(
+                        'Change Status', 
+                        value=st.session_state.toggle_states[toggle_key], 
+                        key=toggle_key,
+                        on_change=toggle_change_callback, 
+                        args=(id, toggle_key)
+                    )
+
+def toggle_change_callback(user_id, toggle_key):
+    # Compare with previous value and update if changed
+    if st.session_state[toggle_key] != st.session_state.toggle_states[toggle_key]:
+        # Update the toggle state in session and the database
+        st.session_state.toggle_states[toggle_key] = st.session_state[toggle_key]
+        conn.change_user_gpt_status(user_id)
 
 def add_download_history(filters):
     if filters[0] is not None:
@@ -673,7 +732,7 @@ def main_display(user_type,user_email):
         st.session_state.logged_in = False
         cookies['user_email'] = 'False'
         cookies['logged_in'] = 'False'
-        cookies['page'] = 'Login'
+        cookies['page'] = 'Login'    
         st.rerun()
     data = load_data()
     world = load_world()
@@ -932,7 +991,7 @@ def main_display(user_type,user_email):
 
         selected_row = grid_response.get('selected_rows', [])
         chatgpt = conn.get_gpt_status()
-        if chatgpt:
+        if chatgpt and (user_type=='admin' or conn.get_user_gpt_status(user_email)):
             if 'summarize' not in st.session_state:
                 st.session_state.summarize = None
             if cookies.get('summarize') == 'True':
@@ -970,7 +1029,7 @@ def main_display(user_type,user_email):
 
 def main():
     st.title("HazMat GIS")
-    st.sidebar.image('logo.png',width=120)
+    #st.sidebar.image('logo.png',width=120)
     if 'page' not in st.session_state:
         st.session_state.page = 'Login'
 
