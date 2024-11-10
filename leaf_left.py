@@ -441,6 +441,8 @@ def login_page():
             if col2.button('Register'):
                 st.session_state.page = 'Register'
                 st.rerun()
+
+@st.cache_data
 def admin_panel_styling():
     # st.sidebar.image('logo.png',width=120)
     # Custom CSS to change the background color
@@ -499,6 +501,12 @@ def admin_panel_styling():
     # Inject the custom CSS for the button
     st.markdown(custom_button_css, unsafe_allow_html=True)
 
+def get_users():
+    return conn.get_users()
+
+def get_download_history():
+    return conn.get_download_history()
+
 def admin_panel():
     
     admin_panel_styling()
@@ -510,19 +518,32 @@ def admin_panel():
         cookies.save()
         st.rerun()
 
+    st.sidebar.subheader('ChatGpt Status')
     chatgpt = conn.get_gpt_status()
+    button_name = 'Turn Off' if chatgpt else 'Turn On'
+    if st.sidebar.button(button_name):
+        conn.change_gpt_status()
+        st.rerun()
+    if chatgpt:
+        st.sidebar.success('ChatGpt Enabled')
+    else:
+        st.sidebar.error('ChatGpt Disabled')
 
-    col1, col2, col3, col4, col5 = st.tabs(['Login History','Download History','Manage Access','Upload Data','ChatGpt'])
+    col1, col2, col3, col4 = st.tabs(['Login History','Download History','Manage Access','Upload Data'])
 
     with col1:
         users = conn.get_users()
-        st.subheader('Select Users to See Login details: ')
         if users:
             df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
+            emails = list(df['Email'])
+            emails.insert(0,'All')
+            selected_user = st.multiselect('Select User ',emails,default=emails[0])
+            if 'All' in selected_user:
+                selected_user = emails[1:]
+            elif len(selected_user) > 0:
+                df = df[df['Email'].isin(selected_user)]
             gb = GridOptionsBuilder.from_dataframe(df)
             gb.configure_pagination(paginationAutoPageSize=True) 
-            gb.configure_side_bar()  
-            gb.configure_selection('multiple', use_checkbox=True)
             gridOptions = gb.build()
 
             grid_response = AgGrid(
@@ -533,39 +554,48 @@ def admin_panel():
                 fit_columns_on_grid_load=True
             )
 
-            selected_users = grid_response.get('selected_rows', [])
-
-            if selected_users is not None:
+            if selected_user is not None:
                 st.subheader('Login Information for Selected Users: ')
-                users_emails = [user for user in selected_users.iloc[:,1]]   
-                users_data = conn.get_login_info(users_emails)
+                users_data = conn.get_login_info(selected_user)
                 users_data = pd.DataFrame(users_data,columns=['Email','Time'])
                 users_data['Time'] = pd.to_datetime(users_data['Time'])
 
 
                 selected_filter = st.selectbox('Select Time Filter', ['All Time', 'This Month', 'Today', 'Custom Range'])
-                
                 temp_data = users_data.copy()
-                if not temp_data.empty:
-                    if selected_filter == 'This Month':
-                        current_month = datetime.datetime.now().month
-                        temp_data = temp_data[temp_data['Time'].dt.month == current_month]
-                    elif selected_filter == 'Today':
-                        current_date = datetime.datetime.now().date()
-                        temp_data = temp_data[temp_data['Time'].dt.date == current_date]
-                    elif selected_filter == 'Custom Range':
-                        start_date = st.date_input('Start Date',temp_data['Time'].min())
-                        end_date = st.date_input('End Date',temp_data['Time'].max())
-                        temp_data = temp_data[(temp_data['Time'].dt.date >= start_date) & (temp_data['Time'].dt.date <= end_date)]
-                    
-                    st.write(temp_data)
-                else:
-                    st.warning('Not Enough Data')
+                if selected_filter == 'Custom Range':
+                    start_date = st.date_input('Start Date',temp_data['Time'].min())
+                    end_date = st.date_input('End Date',temp_data['Time'].max())
+                if st.button("Find"):
+                    if not temp_data.empty:
+                        if selected_filter == 'This Month':
+                            current_month = datetime.datetime.now().month
+                            temp_data = temp_data[temp_data['Time'].dt.month == current_month]
+                        elif selected_filter == 'Today':
+                            current_date = datetime.datetime.now().date()
+                            temp_data = temp_data[temp_data['Time'].dt.date == current_date]
+                        elif selected_filter == 'Custom Range':                           
+                            temp_data = temp_data[(temp_data['Time'].dt.date >= start_date) & (temp_data['Time'].dt.date <= end_date)]
+                        
+                        st.write(temp_data)
+                    else:
+                        st.warning('Not Enough Data')
         else:
             st.warning('Not Enough Data')
     with col2:
-        data = conn.get_download_history()
+        users = conn.get_users()
+        # if users:
+            
+        data = get_download_history()
         df = pd.DataFrame(data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
+        emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
+        emails = list(emails['Email'])
+        emails.insert(0,'All')
+        selected_user = st.multiselect('Select User ',emails,default=emails[0],key='download_select')
+        if 'All' in selected_user:
+            pass
+        elif len(selected_user) > 0:
+            df = df[df['Email'].isin(selected_user)]
         gb = GridOptionsBuilder.from_dataframe(df)
         gb.configure_pagination(True)
         for col in df.columns:
@@ -573,48 +603,78 @@ def admin_panel():
         gridOptions = gb.build()
 
         grid_response = AgGrid(df,gridOptions=gridOptions,fit_columns_on_grid_load=True)
+        total_downloads = len(df)
+        st.markdown(
+    f"""
+    <div style="width: 150px; padding: 10px; border-radius: 5px; background-color: #e0f7fa; 
+                box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center; margin-left: 0;">
+        <p style="font-size: 16px; color: #00796b; margin: 0; font-weight: bold;">Total Downloads</p>
+        <p style="font-size: 24px; color: #004d40; margin: 0;">{total_downloads}</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
     with col3:
         users = conn.get_users()
-        st.subheader('Select User to Change Status:')
         if users:
             df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
+            emails = list(df['Email'])
+            emails.insert(0,'All')
+            selected_user = st.multiselect('Select User ',emails,default=emails[0],key='manage_select')
+            if 'All' in selected_user:
+                selected_user = emails[1:]
+            elif len(selected_user) > 0:
+                df = df[df['Email'].isin(selected_user)]
+            gpt_status = df['ChatGpt']
+            login_status = df['Status']
+            login_status = [0 if row in ['Pending','Rejected'] else 1 for row in login_status]
+            df = df.drop(['Password', 'ChatGpt', 'Status'], axis=1)
+            df.columns = ['ID', 'Email']
 
-            gb = GridOptionsBuilder.from_dataframe(df)
-            gb.configure_pagination(paginationAutoPageSize=True) 
-            gb.configure_side_bar()  
-            gb.configure_selection('single', use_checkbox=True)
-            gridOptions = gb.build()
+            header_col1, header_col2, header_col3, header_col4 = st.columns((1, 3, 3, 3))
+            with header_col1:
+                st.markdown("### ID")
+            with header_col2:
+                st.markdown("### Email")
+            with header_col3:
+                st.markdown("### ChatGpt")
+            with header_col4:
+                st.markdown('### Status')
 
-            grid_response = AgGrid(
-                df, 
-                gridOptions=gridOptions,
-                enable_enterprise_modules=True,
-                update_mode='MODEL_CHANGED', 
-                fit_columns_on_grid_load=True
-            )
+            
 
-            selected_rows = grid_response.get('selected_rows', [])
+            if 'toggle_states_gpt' not in st.session_state:
+                st.session_state.toggle_states_gpt = {f't{i}': gpt_status.iloc[i] for i in range(len(users))}
 
-            if selected_rows is not None:
+            if 'toggle_states_status' not in st.session_state:
+                st.session_state.toggle_states_status = {f't1{i}': login_status[i] for i in range(len(users))}
 
-                st.write("Selected User(s):")
-                st.write(selected_rows)
-                already_status = selected_rows.iloc[0,3]
-
-                status_change = st.radio("Change the status of the selected user(s):",('Accepted', 'Rejected'))
-                
-                if st.button("Submit"):
-                    if already_status == status_change:
-                        st.warning(f'Status is already {already_status}')
-                    else:
-                        id = selected_rows.iloc[0,0]
-                        if status_change == 'Accepted':
-                            conn.accept_user(id)
-                        else:
-                            conn.reject_user(id)
-                        st.success('Status Changed Successfully')
-                        time.sleep(1.5)
-                        st.rerun()
+            for i, row in df.iterrows():
+                # Create columns for each row dynamically
+                col31, col32, col33, col34 = st.columns((1, 3, 3, 3))
+                id = row['ID']
+                with col31:
+                    st.write(row['ID'])
+                with col32:
+                    st.write(row['Email'])
+                with col33:
+                    toggle_key_1 = f't{i}'
+                    new_value = st.toggle(
+                        'Off / On', 
+                        value=st.session_state.toggle_states_gpt[toggle_key_1], 
+                        key=toggle_key_1,
+                        on_change=toggle_change_callback_gpt, 
+                        args=(id, toggle_key_1)
+                    )
+                with col34:
+                    toggle_key = f't1{i}'
+                    new_value = st.toggle(
+                        'Revoke / Grant', 
+                        value=st.session_state.toggle_states_status[toggle_key], 
+                        key=toggle_key,
+                        on_change=toggle_change_callback_status, 
+                        args=(id, toggle_key)
+                    )
     with col4:
         new_data = st.file_uploader('Select File', type='xlsx')
         if new_data:
@@ -632,64 +692,21 @@ def admin_panel():
                         st.warning('Invalid Data, Try again with a different file.')
                 except Exception as e:
                     st.error(f"Error occurred: {str(e)}")
-    with col5:
-        st.subheader('ChatGpt Status')
-        chatgpt = conn.get_gpt_status()
-        button_name = 'Turn Off' if chatgpt else 'Turn On'
-        button_gpt,status_gpt = st.columns((2,8))
-        with button_gpt:
-            if st.button(button_name):
-                conn.change_gpt_status()
-                st.rerun()
-        with status_gpt:
-            if chatgpt:
-                st.success('ChatGpt Enabled')
-            else:
-                st.error('ChatGpt Disabled')
-        users = conn.get_users()
-        if users:
-            users = pd.DataFrame(users)
-            status = users[3]
-            users = users.drop([2, 3, 4], axis=1)
-            users.columns = ['ID', 'Email']
+        
 
-            header_col1, header_col2, header_col3 = st.columns((2, 5, 3))
-            with header_col1:
-                st.markdown("### ID")
-            with header_col2:
-                st.markdown("### Email")
-            with header_col3:
-                st.markdown("### Status")
-
-            
-
-            if 'toggle_states' not in st.session_state:
-                st.session_state.toggle_states = {f't{i}': status.iloc[i] for i in range(len(users))}
-
-            for i, row in users.iterrows():
-                # Create columns for each row dynamically
-                col1, col2, col3 = st.columns((2, 5, 3))
-                id = row['ID']
-                with col1:
-                    st.write(row['ID'])
-                with col2:
-                    st.write(row['Email'])
-                with col3:
-                    toggle_key = f't{i}'
-                    new_value = st.toggle(
-                        'Change Status', 
-                        value=st.session_state.toggle_states[toggle_key], 
-                        key=toggle_key,
-                        on_change=toggle_change_callback, 
-                        args=(id, toggle_key)
-                    )
-
-def toggle_change_callback(user_id, toggle_key):
+def toggle_change_callback_gpt(user_id, toggle_key):
     # Compare with previous value and update if changed
-    if st.session_state[toggle_key] != st.session_state.toggle_states[toggle_key]:
+    if st.session_state[toggle_key] != st.session_state.toggle_states_gpt[toggle_key]:
         # Update the toggle state in session and the database
-        st.session_state.toggle_states[toggle_key] = st.session_state[toggle_key]
+        st.session_state.toggle_states_gpt[toggle_key] = st.session_state[toggle_key]
         conn.change_user_gpt_status(user_id)
+
+def toggle_change_callback_status(user_id, toggle_key):
+    # Compare with previous value and update if changed
+    if st.session_state[toggle_key] != st.session_state.toggle_states_status[toggle_key]:
+        # Update the toggle state in session and the database
+        st.session_state.toggle_states_status[toggle_key] = st.session_state[toggle_key]
+        conn.change_status(user_id)
 
 def add_download_history(filters):
     if filters[0] is not None:

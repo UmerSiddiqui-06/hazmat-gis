@@ -45,8 +45,8 @@ class sqlpy:
         data = self.cursor.fetchone()
         if not data:
             self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u1','temp','0000',0,'Accepted'))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u2','temp1','0000',1,'Accepted'))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u3','temp2','0000',1,'Accepted'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u2','temp1','0000',1,'Pending'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u3','temp2','0000',1,'Rejected'))
             self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u4','temp3','0000',0,'Accepted'))
             self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u5','temp4','0000',1,'Accepted'))
 
@@ -97,6 +97,15 @@ class sqlpy:
         data = self.cursor.fetchall()
         return data
     
+    def change_status(self,user_id):
+        self.cursor.execute("SELECT status FROM users WHERE user_id = ?",(user_id,))
+        already_status = self.cursor.fetchone()[0]
+        if already_status == 'Rejected' or already_status=='Pending':
+            self.cursor.execute("UPDATE users SET status = ? WHERE user_id = ?",("Accepted",user_id))
+        elif already_status=='Accepted': 
+            self.cursor.execute("UPDATE users SET status = ? WHERE user_id = ?",('Rejected',user_id))
+        self.conn.commit()
+
     def accept_user(self,user_id):
         self.cursor.execute("UPDATE users SET status = ? WHERE user_id = ?",('Accepted',user_id))
         self.conn.commit()
