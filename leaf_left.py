@@ -398,8 +398,13 @@ def register_page():
 def login_page():
     columns = st.columns((2.5,5,2.5))
     with columns[1]:
-        with st.container(border=True):
-            st.subheader('Login')
+        cols = st.columns((2.5,4,3.5))
+        with cols[1]:
+            st.image("logo.png",width=250)
+        cols = st.columns((2,8))
+        with cols[1]:    
+            st.header("HazMat GIS - Login")
+        with st.container(border=True):    
             email = st.text_input('Email')
             password = st.text_input('Password',type='password')
             if st.button('Login'):
@@ -534,12 +539,11 @@ def admin_panel():
     with col1:
         users = conn.get_users()
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','Stopped Since'])
             emails = list(df['Email'])
-            emails.insert(0,'All')
-            selected_user = st.multiselect('Select User ',emails,default=emails[0])
-            if 'All' in selected_user:
-                selected_user = emails[1:]
+            selected_user = st.multiselect('Select User ',emails)
+            if not selected_user:
+                selected_user = emails[:]
             elif len(selected_user) > 0:
                 df = df[df['Email'].isin(selected_user)]
             gb = GridOptionsBuilder.from_dataframe(df)
@@ -560,22 +564,50 @@ def admin_panel():
                 users_data = pd.DataFrame(users_data,columns=['Email','Time'])
                 users_data['Time'] = pd.to_datetime(users_data['Time'])
 
+                selected_filter = st.selectbox(
+                'Select Time Filter',
+                ['All time', 'Past Day', 'Past Week', 'Past Month', 'Past Year', 'Custom Range']
+                )
 
-                selected_filter = st.selectbox('Select Time Filter', ['All Time', 'This Month', 'Today', 'Custom Range'])
                 temp_data = users_data.copy()
+
                 if selected_filter == 'Custom Range':
-                    start_date = st.date_input('Start Date',temp_data['Time'].min())
-                    end_date = st.date_input('End Date',temp_data['Time'].max())
+                    start_date = st.date_input('Start Date', temp_data['Time'].min())
+                    end_date = st.date_input('End Date', temp_data['Time'].max())
+                else:
+                    start_date, end_date = None, None  
+
                 if st.button("Find"):
                     if not temp_data.empty:
-                        if selected_filter == 'This Month':
-                            current_month = datetime.datetime.now().month
-                            temp_data = temp_data[temp_data['Time'].dt.month == current_month]
-                        elif selected_filter == 'Today':
-                            current_date = datetime.datetime.now().date()
-                            temp_data = temp_data[temp_data['Time'].dt.date == current_date]
-                        elif selected_filter == 'Custom Range':                           
-                            temp_data = temp_data[(temp_data['Time'].dt.date >= start_date) & (temp_data['Time'].dt.date <= end_date)]
+                        current_time = datetime.datetime.now()
+                        
+                        if selected_filter == 'All time':
+                            pass
+                        
+                        elif selected_filter == 'Past Day':
+                            yesterday = current_time - datetime.timedelta(days=1)
+                            temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(yesterday)]
+                        
+                        elif selected_filter == 'Past Week':
+                            past_week = current_time - datetime.timedelta(weeks=1)
+                            temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_week)]
+                        
+                        elif selected_filter == 'Past Month':
+                            past_month = current_time - datetime.timedelta(days=30)
+                            temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_month)]
+                        
+                        elif selected_filter == 'Past Year':
+                            past_year = current_time - datetime.timedelta(days=365)
+                            temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_year)]
+                        
+                        elif selected_filter == 'Custom Range':
+                            if start_date and end_date:
+                                temp_data = temp_data[
+                                    (temp_data['Time'] >= pd.Timestamp(start_date)) &
+                                    (temp_data['Time'] <= pd.Timestamp(end_date))
+                                ]
+                            else:
+                                st.warning("Please select a valid start and end date.")
                         
                         st.write(temp_data)
                     else:
@@ -588,11 +620,10 @@ def admin_panel():
             
         data = get_download_history()
         df = pd.DataFrame(data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
-        emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
+        emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status','ChatGpt_used','Stopped Since'])
         emails = list(emails['Email'])
-        emails.insert(0,'All')
-        selected_user = st.multiselect('Select User ',emails,default=emails[0],key='download_select')
-        if 'All' in selected_user:
+        selected_user = st.multiselect('Select User ',emails,key='download_select')
+        if not selected_user:
             pass
         elif len(selected_user) > 0:
             df = df[df['Email'].isin(selected_user)]
@@ -605,31 +636,86 @@ def admin_panel():
         grid_response = AgGrid(df,gridOptions=gridOptions,fit_columns_on_grid_load=True)
         total_downloads = len(df)
         st.markdown(
-    f"""
-    <div style="width: 150px; padding: 10px; border-radius: 5px; background-color: #e0f7fa; 
-                box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center; margin-left: 0;">
-        <p style="font-size: 16px; color: #00796b; margin: 0; font-weight: bold;">Total Downloads</p>
-        <p style="font-size: 24px; color: #004d40; margin: 0;">{total_downloads}</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+            f"""
+            <div style="width: 150px; padding: 10px; border-radius: 5px; background-color: #e0f7fa; 
+                        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center; margin-left: 0;">
+                <p style="font-size: 16px; color: #00796b; margin: 0; font-weight: bold;">Total Downloads</p>
+                <p style="font-size: 24px; color: #004d40; margin: 0;">{total_downloads}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        if len(selected_user) == 0:
+            selected_user = emails
+        st.subheader('Login Information for Selected Users: ')
+        users_data = conn.get_user_download_history(selected_user)
+        users_data = pd.DataFrame(users_data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
+        users_data['Time'] = pd.to_datetime(users_data['Time'])
+        selected_filter = st.selectbox(
+            'Select Time Filter',
+            ['All time', 'Past Day', 'Past Week', 'Past Month', 'Past Year', 'Custom Range'],
+            key="down-user"
+        )
+
+        temp_data = users_data.copy()
+
+        if selected_filter == 'Custom Range':
+            start_date = st.date_input('Start Date', temp_data['Time'].min())
+            end_date = st.date_input('End Date', temp_data['Time'].max())
+        else:
+            start_date, end_date = None, None              
+
+
+        if st.button("Find",key='down-find'):
+            if not temp_data.empty:
+                current_time = datetime.datetime.now()
+                
+                if selected_filter == 'All time':
+                    pass
+                
+                elif selected_filter == 'Past Day':
+                    yesterday = current_time - datetime.timedelta(days=1)
+                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(yesterday)]
+                
+                elif selected_filter == 'Past Week':
+                    past_week = current_time - datetime.timedelta(weeks=1)
+                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_week)]
+                
+                elif selected_filter == 'Past Month':
+                    past_month = current_time - datetime.timedelta(days=30)
+                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_month)]
+                
+                elif selected_filter == 'Past Year':
+                    past_year = current_time - datetime.timedelta(days=365)
+                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_year)]
+                
+                elif selected_filter == 'Custom Range':
+                    if start_date and end_date:
+                        temp_data = temp_data[
+                            (temp_data['Time'] >= pd.Timestamp(start_date)) &
+                            (temp_data['Time'] <= pd.Timestamp(end_date))
+                        ]
+                    else:
+                        st.warning("Please select a valid start and end date.")
+                
+                st.write(temp_data)
+            else:
+                st.warning('Not Enough Data')
     with col3:
         users = conn.get_users()
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','Stopped Since'])
             emails = list(df['Email'])
-            emails.insert(0,'All')
-            selected_user = st.multiselect('Select User ',emails,default=emails[0],key='manage_select')
-            if 'All' in selected_user:
-                selected_user = emails[1:]
+            selected_user = st.multiselect('Select User ',emails,key='manage_select')
+            if not selected_user:
+                selected_user = emails[:]
             elif len(selected_user) > 0:
                 df = df[df['Email'].isin(selected_user)]
             gpt_status = df['ChatGpt']
             login_status = df['Status']
             login_status = [0 if row in ['Pending','Rejected'] else 1 for row in login_status]
-            df = df.drop(['Password', 'ChatGpt', 'Status'], axis=1)
-            df.columns = ['ID', 'Email']
+            df = df.drop(['Password', 'ChatGpt', 'Status','ChatGpt_used'], axis=1)
+            df.columns = ['ID', 'Email','Stopped Since']
 
             header_col1, header_col2, header_col3, header_col4 = st.columns((1, 3, 3, 3))
             with header_col1:
@@ -1008,12 +1094,11 @@ def main_display(user_type,user_email):
 
         selected_row = grid_response.get('selected_rows', [])
         chatgpt = conn.get_gpt_status()
-        if chatgpt and (user_type=='admin' or conn.get_user_gpt_status(user_email)):
+        if chatgpt and (user_type=='admin' or (conn.get_user_gpt_status(user_email) and conn.get_gpt_limit_check(user_email))):
             if 'summarize' not in st.session_state:
                 st.session_state.summarize = None
             if cookies.get('summarize') == 'True':
                 if selected_row is not None:
-                    # st.write(selected_row['Link'][0])
                     with st.container(border=True):
                         st.subheader('Summary')
                         url = selected_row['Link'][0]
@@ -1027,6 +1112,8 @@ def main_display(user_type,user_email):
                             prompt = prompt + content
                             response = chatgpt_explain(prompt)
                             cookies[title] = response
+                            if user_type!="admin":
+                                conn.increase_gpt(user_email)
                         st.write(response)
 
                     cookies['summarize'] = 'False'
@@ -1045,7 +1132,7 @@ def main_display(user_type,user_email):
         """)
 
 def main():
-    st.title("HazMat GIS")
+    # st.title("HazMat GIS")
     #st.sidebar.image('logo.png',width=120)
     if 'page' not in st.session_state:
         st.session_state.page = 'Login'

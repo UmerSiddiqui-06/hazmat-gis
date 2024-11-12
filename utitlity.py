@@ -1,5 +1,5 @@
 import sqlite3
-import streamlit as st
+from datetime import datetime,timedelta
 
 class sqlpy:
     def __init__(self):
@@ -12,7 +12,9 @@ class sqlpy:
                 email VARCHAR(255),  
                 password VARCHAR(255),
                 chatgpt BOOL,
-                status VARCHAR(255)
+                status VARCHAR(255),
+                ChatGpt_used INTEGER,
+                remaining_time DATETIME
                 );""")
 
         # Create the admin table
@@ -44,11 +46,11 @@ class sqlpy:
         self.cursor.execute('SELECT * FROM users')
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u1','temp','0000',0,'Accepted'))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u2','temp1','0000',1,'Pending'))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u3','temp2','0000',1,'Rejected'))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u4','temp3','0000',0,'Accepted'))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status) VALUES(?,?,?,?,?)",('u5','temp4','0000',1,'Accepted'))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u1','temp','0000',0,'Accepted',0,None))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u2','temp1','0000',1,'Pending',0,None))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u3','temp2','0000',1,'Rejected',0,None))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u4','temp3','0000',1,'Accepted',4,None))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u5','temp4','0000',1,'Accepted',5,datetime.now()-timedelta(days=40)))
 
         # Insert admin record
         self.cursor.execute('SELECT * FROM admin')
@@ -169,6 +171,46 @@ class sqlpy:
         self.cursor.execute('SELECT chatgpt FROM users WHERE email = ?',(email,))
         chatgpt = self.cursor.fetchone()[0]
         return chatgpt
+    
+    def get_user_download_history(self,users_emails):
+        data = []
+        for email in users_emails:
+            self.cursor.execute('SELECT * FROM download_history WHERE Email = ?',(email,))
+            temp = self.cursor.fetchall()
+            if temp:
+                for record in temp:
+                    data.append(record)
+        return data
+    
+    def get_gpt_limit_check(self,user):
+        self.cursor.execute("SELECT ChatGpt_used FROM users WHERE email = ?",(user,))
+        data = self.cursor.fetchone()[0]
+        if data < 5:
+            return True
+        else:
+            if data == 5:
+                self.cursor.execute("SELECT remaining_time FROM users WHERE email = ?",(user,))
+                old_date = self.cursor.fetchone()[0]
+                new_date = datetime.now()
+                difference = new_date - datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S.%f")
+                if difference.days >= 30:
+                    self.cursor.execute("UPDATE users SET ChatGpt_used = ? , remaining_time = ? WHERE email = ?",(0,None,user))
+                    self.conn.commit()
+                    return True
+                else:
+                    return False
+            return False
+        
+    def increase_gpt(self,user):
+        self.cursor.execute("SELECT ChatGpt_used FROM users WHERE email = ?",(user,))
+        times = self.cursor.fetchone()[0]
+        times = times+1
+        if times == 5:
+            remaining_time = datetime.now()
+        else:
+            remaining_time = None
+        self.cursor.execute("UPDATE users SET ChatGpt_used = ? , remaining_time = ? WHERE email = ?",(times,remaining_time,user))
+        self.conn.commit()
 
         
 
