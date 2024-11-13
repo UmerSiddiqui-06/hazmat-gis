@@ -418,7 +418,6 @@ def login_page():
                     is_user = conn.check_login_user(email,password)
                     if is_admin:
                         st.session_state.logged_in = True
-                        st.session_state.user_email = email
                         cookies['logged_in'] =  'True'
                         cookies['user_type'] = 'admin'
                         cookies['page'] = 'main_display'
@@ -861,6 +860,7 @@ def main_display(user_type,user_email):
         if st.sidebar.button('Admin Panel',use_container_width=True):
             st.session_state.page = 'admin_panel'
             cookies['page'] = 'admin_panel'
+            
             st.rerun()
     
 
@@ -1201,7 +1201,7 @@ def main():
         pending_page()
 
 
-    if st.session_state.logged_in == True and st.session_state.user_email!='admin':
+    if st.session_state.logged_in == True and st.session_state.user_email:
         main_display(st.session_state.user_type,st.session_state.user_email)
     else:
 
