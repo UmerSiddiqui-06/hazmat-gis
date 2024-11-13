@@ -418,6 +418,7 @@ def login_page():
                     is_user = conn.check_login_user(email,password)
                     if is_admin:
                         st.session_state.logged_in = True
+                        st.session_state.user_email = email
                         cookies['logged_in'] =  'True'
                         cookies['user_type'] = 'admin'
                         cookies['page'] = 'main_display'
@@ -427,11 +428,13 @@ def login_page():
                         conn.add_new_login(email)
                         st.session_state.user_email = email
                         st.session_state.logged_in = True
-                        cookies['user_email'] = email
-                        cookies['logged_in'] =  'True'
-                        cookies['user_type'] = 'user'
-                        cookies['user_email'] = email
-                        cookies.save() 
+                        st.session_state.user_type = 'user'
+                        st.session_state.user_email = email
+                        # cookies['user_email'] = email
+                        # cookies['logged_in'] =  'True'
+                        # cookies['user_type'] = 'user'
+                        # cookies['user_email'] = email
+                        # cookies.save() 
                         st.rerun()
                     elif is_user == 'Rejected':
                         st.session_state.page = 'Rejected'
@@ -1198,31 +1201,35 @@ def main():
         pending_page()
 
 
-    if cookies.get('logged_in') == 'True':
-        st.session_state.logged_in = True
-        st.session_state.page = cookies.get('page')
+    if st.session_state.logged_in == True and st.session_state.user_email!='admin':
+        main_display(st.session_state.user_type,st.session_state.user_email)
     else:
-        st.session_state.logged_in = False
 
-    if not st.session_state.logged_in:    
-        if st.session_state.page == 'Login':
-            login_page()
-        if st.session_state.page == 'Register':
-            register_page()
-    else:
-        if st.session_state.page == 'admin_panel':
-            admin_panel()
+        if cookies.get('logged_in') == 'True':
+            st.session_state.logged_in = True
+            st.session_state.page = cookies.get('page')
         else:
-            if cookies.get('user_type') == 'admin':
-                st.session_state.user_type = 'admin'
-            elif cookies.get('user_type') == 'user':
-                st.session_state.user_type = 'user'               
-            cookies['page'] = 'main_display'
-            cookies.save()
-            st.session_state.user_email = cookies.get('user_email',None)
-            if st.session_state.user_email == 'False':
-                st.session_state.user_email = None
-            main_display(st.session_state.user_type,st.session_state.user_email)
+            st.session_state.logged_in = False
+
+        if not st.session_state.logged_in:    
+            if st.session_state.page == 'Login':
+                login_page()
+            if st.session_state.page == 'Register':
+                register_page()
+        else:
+            if st.session_state.page == 'admin_panel':
+                admin_panel()
+            else:
+                if cookies.get('user_type') == 'admin':
+                    st.session_state.user_type = 'admin'
+                elif cookies.get('user_type') == 'user':
+                    st.session_state.user_type = 'user'               
+                cookies['page'] = 'main_display'
+                cookies.save()
+                st.session_state.user_email = cookies.get('user_email',None)
+                if st.session_state.user_email == 'False':
+                    st.session_state.user_email = None
+                main_display(st.session_state.user_type,st.session_state.user_email)
 
 if __name__ == "__main__":
     main()
