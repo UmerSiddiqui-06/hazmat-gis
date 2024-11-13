@@ -11,3 +11,5 @@ plotly
 streamlit-plotly-events
 streamlit-aggrid
 openai
+streamlit-cookies-manager
+yagmail
