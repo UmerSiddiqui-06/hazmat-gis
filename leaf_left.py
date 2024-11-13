@@ -534,12 +534,18 @@ def admin_panel():
     else:
         st.sidebar.error('ChatGpt Disabled')
 
+    chatgpt_limit = conn.get_gpt_limit()
+    new_limit = st.sidebar.number_input("Change Limit: ",min_value=0,step=1,format="%d",value=chatgpt_limit)
+    if st.sidebar.button("Change"):
+        conn.set_gpt_limit(new_limit)
+        st.rerun()
+
     col1, col2, col3, col4 = st.tabs(['Login History','Download History','Manage Access','Upload Data'])
 
     with col1:
         users = conn.get_users()
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','Stopped Since'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','ChatGpt_limit','Stopped Since'])
             emails = list(df['Email'])
             selected_user = st.multiselect('Select User ',emails)
             if not selected_user:
@@ -555,7 +561,6 @@ def admin_panel():
                 gridOptions=gridOptions,
                 enable_enterprise_modules=True,
                 update_mode='MODEL_CHANGED', 
-                fit_columns_on_grid_load=True
             )
 
             if selected_user is not None:
@@ -620,7 +625,7 @@ def admin_panel():
             
         data = get_download_history()
         df = pd.DataFrame(data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
-        emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status','ChatGpt_used','Stopped Since'])
+        emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status','ChatGpt_used','ChatGpt_limit','Stopped Since'])
         emails = list(emails['Email'])
         selected_user = st.multiselect('Select User ',emails,key='download_select')
         if not selected_user:
@@ -704,7 +709,7 @@ def admin_panel():
     with col3:
         users = conn.get_users()
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','Stopped Since'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','ChatGpt_limit','Stopped Since'])
             emails = list(df['Email'])
             selected_user = st.multiselect('Select User ',emails,key='manage_select')
             if not selected_user:
@@ -714,10 +719,11 @@ def admin_panel():
             gpt_status = df['ChatGpt']
             login_status = df['Status']
             login_status = [0 if row in ['Pending','Rejected'] else 1 for row in login_status]
-            df = df.drop(['Password', 'ChatGpt', 'Status','ChatGpt_used'], axis=1)
-            df.columns = ['ID', 'Email','Stopped Since']
-
-            header_col1, header_col2, header_col3, header_col4 = st.columns((1, 3, 3, 3))
+            gptlimit = df['ChatGpt_limit']
+            df = df.drop(['Password', 'ChatGpt', 'Status','ChatGpt_used','Stopped Since'], axis=1)
+            df.columns = ['ID', 'Email','ChatGpt_limit']
+            
+            header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns((1, 3, 2, 2, 2))
             with header_col1:
                 st.markdown("### ID")
             with header_col2:
@@ -726,8 +732,8 @@ def admin_panel():
                 st.markdown("### ChatGpt")
             with header_col4:
                 st.markdown('### Status')
-
-            
+            with header_col5:
+                st.markdown('### GptLimit')
 
             if 'toggle_states_gpt' not in st.session_state:
                 st.session_state.toggle_states_gpt = {f't{i}': gpt_status.iloc[i] for i in range(len(users))}
@@ -735,15 +741,19 @@ def admin_panel():
             if 'toggle_states_status' not in st.session_state:
                 st.session_state.toggle_states_status = {f't1{i}': login_status[i] for i in range(len(users))}
 
+            st.session_state.gpt_limit_state = {f'number{i}': gptlimit.iloc[i] for i in range(len(users))}
+
             for i, row in df.iterrows():
-                # Create columns for each row dynamically
-                col31, col32, col33, col34 = st.columns((1, 3, 3, 3))
+                col31, col32, col33, col34, col35 = st.columns((1, 3, 2, 2, 2))
                 id = row['ID']
                 with col31:
+                    st.write("")
                     st.write(row['ID'])
                 with col32:
+                    st.write("")
                     st.write(row['Email'])
                 with col33:
+                    st.write("")
                     toggle_key_1 = f't{i}'
                     new_value = st.toggle(
                         'Off / On', 
@@ -753,6 +763,7 @@ def admin_panel():
                         args=(id, toggle_key_1)
                     )
                 with col34:
+                    st.write("")
                     toggle_key = f't1{i}'
                     new_value = st.toggle(
                         'Revoke / Grant', 
@@ -761,6 +772,21 @@ def admin_panel():
                         on_change=toggle_change_callback_status, 
                         args=(id, toggle_key)
                     )
+                with col35:
+                    number_key=f"number{i}"
+                    st.markdown("")  
+                    st.number_input(
+                        '',  
+                        key=f"number{i}",
+                        label_visibility="collapsed",
+                        value=st.session_state.gpt_limit_state[number_key],
+                        step=1,
+                        format="%d",
+                        on_change=increase_gpt_limit,
+                        args=(id,number_key),
+                        min_value=0
+                    )
+                    
     with col4:
         new_data = st.file_uploader('Select File', type='xlsx')
         if new_data:
@@ -779,6 +805,10 @@ def admin_panel():
                 except Exception as e:
                     st.error(f"Error occurred: {str(e)}")
         
+def increase_gpt_limit(user_id,number_key):
+    if st.session_state[number_key] != st.session_state.gpt_limit_state[number_key]:
+        st.session_state.gpt_limit_state[number_key] = st.session_state[number_key]
+        conn.increase_gpt_limit(user_id,st.session_state[number_key])
 
 def toggle_change_callback_gpt(user_id, toggle_key):
     # Compare with previous value and update if changed
@@ -829,6 +859,7 @@ def main_display(user_type,user_email):
             st.session_state.page = 'admin_panel'
             cookies['page'] = 'admin_panel'
             st.rerun()
+    
 
     if st.sidebar.button('Logout',use_container_width=True):
         st.session_state.page = 'Login'
@@ -1151,6 +1182,8 @@ def main():
         st.session_state.selected_tab = None
     if 'user_email' not in st.session_state:
         st.session_state.user_email = None
+    if 'gpt_limit_state' not in st.session_state:
+        st.session_state.gpt_limit_state = None
 
     
 
@@ -1183,7 +1216,7 @@ def main():
             if cookies.get('user_type') == 'admin':
                 st.session_state.user_type = 'admin'
             elif cookies.get('user_type') == 'user':
-                st.session_state.user_type = 'user'
+                st.session_state.user_type = 'user'               
             cookies['page'] = 'main_display'
             cookies.save()
             st.session_state.user_email = cookies.get('user_email',None)

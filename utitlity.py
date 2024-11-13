@@ -14,6 +14,7 @@ class sqlpy:
                 chatgpt BOOL,
                 status VARCHAR(255),
                 ChatGpt_used INTEGER,
+                ChatGpt_limit INTEGER,
                 remaining_time DATETIME
                 );""")
 
@@ -21,7 +22,8 @@ class sqlpy:
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS admin (
                 email VARCHAR(255),
                 password VARCHAR(255),
-                chatgpt BOOL            
+                chatgpt BOOL,
+                chatgpt_limit INTEGER            
                 );""")
         
         # Create the login_history table
@@ -46,17 +48,17 @@ class sqlpy:
         self.cursor.execute('SELECT * FROM users')
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u1','temp','0000',0,'Accepted',0,None))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u2','temp1','0000',1,'Pending',0,None))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u3','temp2','0000',1,'Rejected',0,None))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u4','temp3','0000',1,'Accepted',4,None))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time) VALUES(?,?,?,?,?,?,?)",('u5','temp4','0000',1,'Accepted',5,datetime.now()-timedelta(days=40)))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit) VALUES(?,?,?,?,?,?,?,?)",('u1','temp','0000',0,'Accepted',0,None,5))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit) VALUES(?,?,?,?,?,?,?,?)",('u2','temp1','0000',1,'Pending',0,None,5))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit) VALUES(?,?,?,?,?,?,?,?)",('u3','temp2','0000',1,'Rejected',0,None,5))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit) VALUES(?,?,?,?,?,?,?,?)",('u4','temp3','0000',1,'Accepted',4,None,5))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit) VALUES(?,?,?,?,?,?,?,?)",('u5','temp4','0000',1,'Accepted',5,datetime.now()-timedelta(days=40),5))
 
         # Insert admin record
         self.cursor.execute('SELECT * FROM admin')
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO admin (email, password, chatgpt) VALUES (?, ?, ?)", ('admin', '0000',1))
+            self.cursor.execute("INSERT INTO admin (email, password, chatgpt, chatgpt_limit) VALUES (?, ?, ?, ?)", ('admin', '0000',1,5))
         self.conn.commit()
 
     def get_status(self,email):
@@ -76,7 +78,7 @@ class sqlpy:
         else:
             id = 'u' + str(data[0] + 1)
 
-        self.cursor.execute('INSERT INTO users (user_id,email,password,chatgpt,status) VALUES (?,?,?,?,?)',(id,email,password,0,'Pending'))
+        self.cursor.execute('INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,ChatGpt_limit) VALUES (?,?,?,?,?,?,?)',(id,email,password,0,'Pending',0,5))
         self.conn.commit()
 
     def check_login_admin(self,email,password):
@@ -185,10 +187,12 @@ class sqlpy:
     def get_gpt_limit_check(self,user):
         self.cursor.execute("SELECT ChatGpt_used FROM users WHERE email = ?",(user,))
         data = self.cursor.fetchone()[0]
-        if data < 5:
+        self.cursor.execute("SELECT ChatGpt_limit FROM users WHERE email = ?",(user,))
+        limit = self.cursor.fetchone()[0]
+        if data < limit:
             return True
         else:
-            if data == 5:
+            if data == limit:
                 self.cursor.execute("SELECT remaining_time FROM users WHERE email = ?",(user,))
                 old_date = self.cursor.fetchone()[0]
                 new_date = datetime.now()
@@ -205,12 +209,29 @@ class sqlpy:
         self.cursor.execute("SELECT ChatGpt_used FROM users WHERE email = ?",(user,))
         times = self.cursor.fetchone()[0]
         times = times+1
-        if times == 5:
+        self.cursor.execute("SELECT ChatGpt_limit FROM users WHERE email = ?",(user,))
+        limit = self.cursor.fetchone()[0]
+        if times == limit:
             remaining_time = datetime.now()
         else:
             remaining_time = None
         self.cursor.execute("UPDATE users SET ChatGpt_used = ? , remaining_time = ? WHERE email = ?",(times,remaining_time,user))
         self.conn.commit()
+
+    def increase_gpt_limit(self,user,limit):
+        self.cursor.execute("UPDATE users SET ChatGpt_limit = ? WHERE user_id = ?",(limit,user))
+        self.conn.commit()
+
+    def set_gpt_limit(self,limit):
+        self.cursor.execute("UPDATE users SET ChatGpt_limit = ?",(limit,))
+        self.cursor.execute("UPDATE admin SET chatgpt_limit = ?",(limit,))
+        self.conn.commit()
+
+    def get_gpt_limit(self):
+        self.cursor.execute("SELECT chatgpt_limit FROM admin")
+        data = self.cursor.fetchone()[0]
+        return data
+    
 
         
 
