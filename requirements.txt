@@ -13,3 +13,5 @@ streamlit-aggrid
 openai
 streamlit-cookies-manager
 yagmail
+sqlite3
+datetime
