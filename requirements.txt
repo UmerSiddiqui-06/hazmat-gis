@@ -10,3 +10,4 @@ python-Levenshtein
 plotly
 streamlit-plotly-events
 streamlit-aggrid
+openai

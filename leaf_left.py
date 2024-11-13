@@ -396,14 +396,13 @@ def register_page():
                 st.session_state.page = 'Login'
                 st.rerun()
 def login_page():
-    columns = st.columns((2.5,5,2.5))
+    columns = st.columns((1, 6, 1))  # Wider center column to center content
     with columns[1]:
-        cols = st.columns((2.5,4,3.5))
+        cols = st.columns((1, 6, 1))  # Adjusted widths for logo alignment
         with cols[1]:
-            st.image("logo.png",width=250)
-        cols = st.columns((2,8))
-        with cols[1]:    
-            st.header("HazMat GIS - Login")
+            st.image("logo.png", width=250)
+        st.write("")  # Spacer for visual alignment
+        st.header("HazMat GIS - Login")
         with st.container(border=True):    
             email = st.text_input('Email')
             password = st.text_input('Password',type='password')
