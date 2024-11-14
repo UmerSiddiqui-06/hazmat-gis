@@ -38,8 +38,7 @@ if not cookies.ready():
 # Connection with database
 conn = utitlity.sqlpy()
 
-# Ignore deprecation warnings from Streamlit
-warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
+
 
 @st.cache_data
 def load_data():
@@ -401,7 +400,7 @@ def login_page():
         cols = st.columns((2.5,4,3.5))
         with cols[1]:
             st.image("logo.png",width=250)
-        cols = st.columns((2,8))
+        cols = st.columns((2.2,7.8))
         with cols[1]:    
             st.header("HazMat GIS - Login")
         with st.container(border=True):    
@@ -532,9 +531,23 @@ def admin_panel():
         conn.change_gpt_status()
         st.rerun()
     if chatgpt:
-        st.sidebar.success('ChatGpt Enabled')
+        st.sidebar.markdown(
+            """
+            <div style="color: white; background-color: #147b21; padding: 8px; border-radius: 5px; text-align: center;">
+                ChatGPT Enabled
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
-        st.sidebar.error('ChatGpt Disabled')
+        st.sidebar.markdown(
+            """
+            <div style="color: white; background-color: #D84B4B; padding: 8px; border-radius: 5px; text-align: center;">
+                ChatGPT Disabled
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     chatgpt_limit = conn.get_gpt_limit()
     new_limit = st.sidebar.number_input("Change Limit: ",min_value=0,step=1,format="%d",value=chatgpt_limit)
@@ -566,7 +579,7 @@ def admin_panel():
             )
 
             if selected_user is not None:
-                st.subheader('Login Information for Selected Users: ')
+                st.subheader('Login History of Selected Users: ')
                 users_data = conn.get_login_info(selected_user)
                 users_data = pd.DataFrame(users_data,columns=['Email','Time'])
                 users_data['Time'] = pd.to_datetime(users_data['Time'])
@@ -584,7 +597,7 @@ def admin_panel():
                 else:
                     start_date, end_date = None, None  
 
-                if st.button("Find"):
+                if st.button("View History"):
                     if not temp_data.empty:
                         current_time = datetime.datetime.now()
                         
@@ -616,7 +629,20 @@ def admin_panel():
                             else:
                                 st.warning("Please select a valid start and end date.")
                         
-                        st.write(temp_data)
+                        gb = GridOptionsBuilder.from_dataframe(temp_data)
+                        gb.configure_grid_options(rowStyle={"backgroundColor": "white"})
+                        gb.configure_pagination(paginationAutoPageSize=True) 
+                        grid_options = gb.build()
+
+                        # Display with AgGrid
+                        AgGrid(
+                            temp_data,
+                            gridOptions=grid_options,
+                            theme="balham",  # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
+                            fit_columns_on_grid_load=True,
+                            height=200,
+                        )
+
                     else:
                         st.warning('Not Enough Data')
         else:
@@ -654,7 +680,7 @@ def admin_panel():
         )
         if len(selected_user) == 0:
             selected_user = emails
-        st.subheader('Login Information for Selected Users: ')
+        st.subheader('Download History of Selected Users: ')
         users_data = conn.get_user_download_history(selected_user)
         users_data = pd.DataFrame(users_data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
         users_data['Time'] = pd.to_datetime(users_data['Time'])
@@ -673,7 +699,7 @@ def admin_panel():
             start_date, end_date = None, None              
 
 
-        if st.button("Find",key='down-find'):
+        if st.button("View History",key='down-find'):
             if not temp_data.empty:
                 current_time = datetime.datetime.now()
                 
@@ -705,9 +731,21 @@ def admin_panel():
                     else:
                         st.warning("Please select a valid start and end date.")
                 
-                st.write(temp_data)
-            else:
-                st.warning('Not Enough Data')
+            gb = GridOptionsBuilder.from_dataframe(temp_data)
+            gb.configure_grid_options(rowStyle={"backgroundColor": "white"})
+            gb.configure_pagination(paginationAutoPageSize=True) 
+            grid_options = gb.build()
+
+            # Display with AgGrid
+            AgGrid(
+                temp_data,
+                gridOptions=grid_options,
+                theme="balham",  # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
+                fit_columns_on_grid_load=True,
+                height=200,
+                )
+            # else:
+            #     st.warning('Not Enough Data')
     with col3:
         users = conn.get_users()
         if users:
