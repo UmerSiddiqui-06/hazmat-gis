@@ -21,6 +21,7 @@ import time
 import io
 import base64
 from openai import OpenAI
+from streamlit_tags import st_tags
 
 st.set_page_config(layout="wide")
 
@@ -515,69 +516,136 @@ def get_download_history():
 
 def admin_panel():
     
-    admin_panel_styling()
+    # admin_panel_styling()
 
-    if st.sidebar.button('Go Back'):
-        st.session_state.page = 'main_display'
-        cookies['page'] = 'main_display'
-        cookies['selected_tab'] = 'login_history'
-        cookies.save()
-        st.rerun()
+    with st.sidebar:
+        # Go Back Button
+        if st.button('Go Back'):
+            st.session_state.page = 'main_display'
+            cookies['page'] = 'main_display'
+            cookies['selected_tab'] = 'login_history'
+            cookies.save()
+            st.rerun()
 
-    st.sidebar.subheader('ChatGpt Status')
-    chatgpt = conn.get_gpt_status()
-    button_name = 'Turn Off' if chatgpt else 'Turn On'
-    if st.sidebar.button(button_name):
-        conn.change_gpt_status()
-        st.rerun()
-    if chatgpt:
-        st.sidebar.markdown(
-            """
-            <div style="color: white; background-color: #147b21; padding: 8px; border-radius: 5px; text-align: center;">
-                ChatGPT Enabled
-            </div>
-            """,
-            unsafe_allow_html=True,
+        # Header for ChatGPT Settings
+        st.sidebar.header("ChatGPT Settings")
+        
+        # Toggle ChatGPT Status
+        # columns = st.sidebar.columns([5, 5])
+        # with columns[0]:
+        chatgpt = conn.get_gpt_status()
+        chatgpt_toggle = st.toggle(
+            "Enable ChatGPT", 
+            value=chatgpt, 
+            help="Activate or deactivate ChatGPT across the application."
         )
-    else:
-        st.sidebar.markdown(
-            """
-            <div style="color: white; background-color: #D84B4B; padding: 8px; border-radius: 5px; text-align: center;">
-                ChatGPT Disabled
-            </div>
-            """,
-            unsafe_allow_html=True,
+        if chatgpt_toggle != chatgpt:
+            conn.change_gpt_status()
+
+        # # Set GPT Limit
+        # with columns[1]:
+        chatgpt_limit = conn.get_gpt_limit()
+        gpt_limit = st.number_input(
+            'Set ChatGPT Limit', 
+            value=chatgpt_limit,
+            step=1,
+            format="%d",
+            min_value=0,
+            help="Adjust the limit for ChatGPT usage"
         )
+        if gpt_limit != chatgpt_limit:
+            conn.set_gpt_limit(gpt_limit)
+            st.rerun()
+    
 
-    chatgpt_limit = conn.get_gpt_limit()
-    new_limit = st.sidebar.number_input("Change Limit: ",min_value=0,step=1,format="%d",value=chatgpt_limit)
-    if st.sidebar.button("Change"):
-        conn.set_gpt_limit(new_limit)
-        st.rerun()
+        # Header for Data Upload Section
+        st.sidebar.header("Upload Data")
+        new_data = st.sidebar.file_uploader('Upload an Excel File', type='xlsx', label_visibility="collapsed")
 
-    col1, col2, col3, col4 = st.tabs(['Login History','Download History','Manage Access','Upload Data'])
+        if new_data:
+            # Concatenate Data Button
+            if st.sidebar.button('Concatenate Data'):
+                try:
+                    old_data = pd.read_excel('News GIS.xlsx')
+                    new_data = pd.read_excel(new_data)
+                    
+                    # Check for matching column structure
+                    if len(new_data.columns) == len(old_data.columns) and (new_data.dtypes.values == old_data.dtypes.values).all():
+                        result = pd.concat([old_data, new_data], axis=0)
+                        result.to_excel('News GIS.xlsx', index=False)
+                        st.sidebar.success('Data concatenated successfully')
+                        time.sleep(1.5)
+                        st.rerun()
+                    else:
+                        st.sidebar.warning('Invalid Data, Try again with a different file.')
+                except Exception as e:
+                    st.error(f"Error occurred: {str(e)}")
+
+        # Add separator between sections for better readability
+        st.sidebar.markdown('---')
+    col1, col2, col3= st.tabs(['Login History','Download History','Manage Access'])
 
     with col1:
         users = conn.get_users()
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','ChatGpt_limit','Stopped Since'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGPT','Status', 'ChatGPT Usage','ChatGPT Usage Limit','Stopped Since'])
             emails = list(df['Email'])
-            selected_user = st.multiselect('Select User ',emails)
-            if not selected_user:
-                selected_user = emails[:]
-            elif len(selected_user) > 0:
-                df = df[df['Email'].isin(selected_user)]
-            gb = GridOptionsBuilder.from_dataframe(df)
-            gb.configure_pagination(paginationAutoPageSize=True) 
+            if "selected_emails" not in st.session_state:
+                st.session_state.selected_emails = []
+
+            manual_emails = st.multiselect(
+                label="Search User",
+                placeholder="Enter email to search...",
+                options=emails,
+                default=st.session_state.selected_emails,  
+                help="Select or type to search for users.",
+            )
+
+            if set(manual_emails) != set(st.session_state.selected_emails):
+                st.session_state.selected_emails = manual_emails
+                st.rerun()
+
+            filtered_df = df[df["Email"].isin(st.session_state.selected_emails)] if st.session_state.selected_emails else df
+
+            gb = GridOptionsBuilder.from_dataframe(filtered_df)
+            gb.configure_grid_options(domLayout="normal")
+            gb.configure_selection(selection_mode="multiple")
+            gb.configure_column("ID", tooltipField="ID") 
+            gb.configure_column("Email", tooltipField="Email")
+            gb.configure_column("Password", tooltipField="Password") 
+            gb.configure_column("ChatGPT", tooltipField="ChatGPT")
+            gb.configure_column("Status", tooltipField="Status") 
+            gb.configure_column("ChatGPT Usage", tooltipField="ChatGPT Usage")
+            gb.configure_column("ChatGPT Usage Limit", tooltipField="ChatGPT Usage Limit") 
+            gb.configure_column("Stopped Since", tooltipField="Stopped Since")
             gridOptions = gb.build()
 
             grid_response = AgGrid(
-                df, 
+                filtered_df,
                 gridOptions=gridOptions,
                 enable_enterprise_modules=True,
-                update_mode='MODEL_CHANGED', 
+                update_mode="MODEL_CHANGED",
+                height=400,  
+                fit_columns_on_grid_load=True,  
+                theme="alpine",
             )
 
+            selected_rows = grid_response.get("selected_rows", [])
+
+            try:  
+                grid_selected_emails = [email for email in selected_rows['Email']]
+            except:
+                grid_selected_emails = []
+
+            final_selected_emails = list(set(st.session_state.selected_emails).union(set(grid_selected_emails)))
+
+            if set(final_selected_emails) != set(st.session_state.selected_emails):
+                st.session_state.selected_emails = final_selected_emails
+                st.rerun()
+
+            selected_user = manual_emails
+            if len(selected_user)==0:
+                selected_user = emails
             if selected_user is not None:
                 st.subheader('Login History of Selected Users: ')
                 users_data = conn.get_login_info(selected_user)
@@ -592,8 +660,12 @@ def admin_panel():
                 temp_data = users_data.copy()
 
                 if selected_filter == 'Custom Range':
-                    start_date = st.date_input('Start Date', temp_data['Time'].min())
-                    end_date = st.date_input('End Date', temp_data['Time'].max())
+                    try:
+                        start_date = st.date_input('Start Date', temp_data['Time'].min())
+                        end_date = st.date_input('End Date', temp_data['Time'].max())
+                    except:
+                        start_date = st.date_input('Start Date', datetime.datetime.today().date())
+                        end_date = st.date_input('End Date', datetime.datetime.today().date())
                 else:
                     start_date, end_date = None, None  
 
@@ -630,17 +702,20 @@ def admin_panel():
                                 st.warning("Please select a valid start and end date.")
                         
                         gb = GridOptionsBuilder.from_dataframe(temp_data)
-                        gb.configure_grid_options(rowStyle={"backgroundColor": "white"})
-                        gb.configure_pagination(paginationAutoPageSize=True) 
+                        # gb.configure_grid_options(rowStyle={"backgroundColor": "white"})
+                        gb.configure_grid_options(domLayout="normal")
+                        gb.configure_column("Email", tooltipField="Email")
+                        gb.configure_column("Time", tooltipField="Time")
                         grid_options = gb.build()
 
                         # Display with AgGrid
                         AgGrid(
                             temp_data,
                             gridOptions=grid_options,
-                            theme="balham",  # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
+                              # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
                             fit_columns_on_grid_load=True,
                             height=200,
+                            theme="alpine",
                         )
 
                     else:
@@ -652,38 +727,102 @@ def admin_panel():
         # if users:
             
         data = get_download_history()
-        df = pd.DataFrame(data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
+        df = pd.DataFrame(data,columns=['Email','Download Date','Type','Category','Country','Impact','Severity','Date'])
         emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status','ChatGpt_used','ChatGpt_limit','Stopped Since'])
         emails = list(emails['Email'])
-        selected_user = st.multiselect('Select User ',emails,key='download_select')
+        selected_user = st_tags(
+            label="Search User", 
+            text="Enter email to search...",
+            value=[], 
+            suggestions=emails,
+            key="2",
+        )
+        # selected_user = st.multiselect('Search User ',emails,key='download_select',placeholder="Enter email to search...")
         if not selected_user:
             pass
         elif len(selected_user) > 0:
             df = df[df['Email'].isin(selected_user)]
         gb = GridOptionsBuilder.from_dataframe(df)
-        gb.configure_pagination(True)
-        for col in df.columns:
-            gb.configure_column(col, tooltipField=col)
+        gb.configure_grid_options(domLayout='normal')
+        gb.configure_column("Download Date", tooltipField="Download Date") 
+        gb.configure_column("Email", tooltipField="Email") 
+        gb.configure_column("Type", tooltipField="Type") 
+        gb.configure_column("Category", tooltipField="Category") 
+        gb.configure_column("Country", tooltipField="Country") 
+        gb.configure_column("Impact", tooltipField="Impact") 
+        gb.configure_column("Severity", tooltipField="Severity") 
+        gb.configure_column("Date", tooltipField="Date") 
         gridOptions = gb.build()
 
-        grid_response = AgGrid(df,gridOptions=gridOptions,fit_columns_on_grid_load=True)
-        total_downloads = len(df)
-        st.markdown(
-            f"""
-            <div style="width: 150px; padding: 10px; border-radius: 5px; background-color: #e0f7fa; 
-                        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center; margin-left: 0;">
-                <p style="font-size: 16px; color: #00796b; margin: 0; font-weight: bold;">Total Downloads</p>
-                <p style="font-size: 24px; color: #004d40; margin: 0;">{total_downloads}</p>
-            </div>
-            """,
-            unsafe_allow_html=True
+        grid_response = AgGrid(
+        df,
+        gridOptions=gridOptions,
+        enable_enterprise_modules=True,
+        update_mode='MODEL_CHANGED',
+        height=400,  # Set a fixed height for vertical scrolling
+        fit_columns_on_grid_load=True,  # Disable auto-fit on initial load
+        theme="alpine"
         )
+
+        # try:
+            # Convert the 'Time' column from string to datetime
+        df['Download Date'] = pd.to_datetime(df['Download Date'])
+        
+        # Get current date and time
+        today = datetime.datetime.today()
+
+        # Calculate total downloads
+        total_downloads = len(df)
+
+        # Calculate downloads this week
+        downloads_this_week = len(df[df['Download Date'] >= today - datetime.timedelta(days=7)])
+
+        # Calculate downloads today
+        downloads_today = len(df[df['Download Date'].dt.date == today.date()])
+
+        # Calculate downloads this month
+        downloads_this_month = len(df[df['Download Date'] >= today - datetime.timedelta(days=30)])
+
+        # except Exception as e:
+        #     # If there is any error (e.g., in conversion), set values to 0
+        #     total_downloads = 0
+        #     downloads_this_week = 0
+        #     downloads_today = 0
+        #     downloads_this_month = 0
+
+        st.markdown(
+    f"""
+    <div style="display: flex; justify-content: space-between; width: 100%; padding: 10px;">
+        <div style="width: 23%; padding: 10px; border-radius: 5px; background-color: #a0b7a9; 
+                    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center;">
+            <p style="font-size: 16px; color: #161d25; margin: 0; font-weight: bold;">Downloads Today</p>
+            <p style="font-size: 24px; color: #161d25; margin: 0;">{downloads_today}</p>
+        </div>
+        <div style="width: 23%; padding: 10px; border-radius: 5px; background-color: #a0b7a9; 
+                    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center;">
+            <p style="font-size: 16px; color: #161d25; margin: 0; font-weight: bold;">Downloads This Week</p>
+            <p style="font-size: 24px; color: #161d25; margin: 0;">{downloads_this_week}</p>
+        </div>
+        <div style="width: 23%; padding: 10px; border-radius: 5px; background-color: #a0b7a9; 
+                    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center;">
+            <p style="font-size: 16px; color: #161d25; margin: 0; font-weight: bold;">Downloads This Month</p>
+            <p style="font-size: 24px; color: #161d25; margin: 0;">{downloads_this_month}</p>
+        </div>
+        <div style="width: 23%; padding: 10px; border-radius: 5px; background-color: #a0b7a9; 
+                    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); text-align: center;">
+            <p style="font-size: 16px; color: #161d25; margin: 0; font-weight: bold;">Total Downloads</p>
+            <p style="font-size: 24px; color: #161d25; margin: 0;">{total_downloads}</p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
         if len(selected_user) == 0:
             selected_user = emails
         st.subheader('Download History of Selected Users: ')
         users_data = conn.get_user_download_history(selected_user)
-        users_data = pd.DataFrame(users_data,columns=['Email','Time','Type','Category','Country','Impact','Severity','Date'])
-        users_data['Time'] = pd.to_datetime(users_data['Time'])
+        users_data = pd.DataFrame(users_data,columns=['Email','Download Date','Type','Category','Country','Impact','Severity','Date'])
+        users_data['Download Date'] = pd.to_datetime(users_data['Download Date'])
         selected_filter = st.selectbox(
             'Select Time Filter',
             ['All time', 'Past Day', 'Past Week', 'Past Month', 'Past Year', 'Custom Range'],
@@ -691,10 +830,13 @@ def admin_panel():
         )
 
         temp_data = users_data.copy()
-
         if selected_filter == 'Custom Range':
-            start_date = st.date_input('Start Date', temp_data['Time'].min())
-            end_date = st.date_input('End Date', temp_data['Time'].max())
+            try:
+                start_date = st.date_input('Start Date', temp_data['Download Date'].min(),key="k1")
+                end_date = st.date_input('End Date', temp_data['Download Date'].max(),key="k2")
+            except:
+                start_date = st.date_input('Start Date', datetime.datetime.today().date(),key="k3")
+                end_date = st.date_input('End Date', datetime.datetime.today().date(),key="k4")
         else:
             start_date, end_date = None, None              
 
@@ -708,50 +850,63 @@ def admin_panel():
                 
                 elif selected_filter == 'Past Day':
                     yesterday = current_time - datetime.timedelta(days=1)
-                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(yesterday)]
+                    temp_data = temp_data[temp_data['Download Date'] >= pd.Timestamp(yesterday)]
                 
                 elif selected_filter == 'Past Week':
                     past_week = current_time - datetime.timedelta(weeks=1)
-                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_week)]
+                    temp_data = temp_data[temp_data['Download Date'] >= pd.Timestamp(past_week)]
                 
                 elif selected_filter == 'Past Month':
                     past_month = current_time - datetime.timedelta(days=30)
-                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_month)]
+                    temp_data = temp_data[temp_data['Download Date'] >= pd.Timestamp(past_month)]
                 
                 elif selected_filter == 'Past Year':
                     past_year = current_time - datetime.timedelta(days=365)
-                    temp_data = temp_data[temp_data['Time'] >= pd.Timestamp(past_year)]
+                    temp_data = temp_data[temp_data['Download Date'] >= pd.Timestamp(past_year)]
                 
                 elif selected_filter == 'Custom Range':
                     if start_date and end_date:
                         temp_data = temp_data[
-                            (temp_data['Time'] >= pd.Timestamp(start_date)) &
-                            (temp_data['Time'] <= pd.Timestamp(end_date))
+                            (temp_data['Download Date'] >= pd.Timestamp(start_date)) &
+                            (temp_data['Download Date'] <= pd.Timestamp(end_date))
                         ]
                     else:
                         st.warning("Please select a valid start and end date.")
                 
-            gb = GridOptionsBuilder.from_dataframe(temp_data)
-            gb.configure_grid_options(rowStyle={"backgroundColor": "white"})
-            gb.configure_pagination(paginationAutoPageSize=True) 
-            grid_options = gb.build()
+                gb = GridOptionsBuilder.from_dataframe(temp_data)
+                gb.configure_grid_options(domLayout='normal')
+                gb.configure_column("Download Date", tooltipField="Download Date") 
+                gb.configure_column("Email", tooltipField="Email") 
+                gb.configure_column("Type", tooltipField="Type") 
+                gb.configure_column("Category", tooltipField="Category") 
+                gb.configure_column("Country", tooltipField="Country") 
+                gb.configure_column("Impact", tooltipField="Impact") 
+                gb.configure_column("Severity", tooltipField="Severity") 
+                gb.configure_column("Date", tooltipField="Date") 
+                grid_options = gb.build()
 
-            # Display with AgGrid
-            AgGrid(
-                temp_data,
-                gridOptions=grid_options,
-                theme="balham",  # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
-                fit_columns_on_grid_load=True,
-                height=200,
-                )
-            # else:
-            #     st.warning('Not Enough Data')
+                # Display with AgGrid
+                AgGrid(
+                    temp_data,
+                    gridOptions=grid_options,
+                    theme="alpine",# Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
+                    fit_columns_on_grid_load=True,
+                    height=200,
+                    )
+            else:
+                st.warning('Not Enough Data')
     with col3:
         users = conn.get_users()
         if users:
             df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','ChatGpt_limit','Stopped Since'])
             emails = list(df['Email'])
-            selected_user = st.multiselect('Select User ',emails,key='manage_select')
+            selected_user = st_tags(
+                label="Search User", 
+                text="Enter email to search...",
+                value=[], 
+                suggestions=emails,
+                key="3"
+            )
             if not selected_user:
                 selected_user = emails[:]
             elif len(selected_user) > 0:
@@ -780,8 +935,11 @@ def admin_panel():
 
             if 'toggle_states_status' not in st.session_state:
                 st.session_state.toggle_states_status = {f't1{i}': login_status[i] for i in range(len(users))}
+            
+            if 'gpt_limit_state' not in st.session_state:
+                st.session_state.gpt_limit_state = {f'number{i}': gptlimit.iloc[i] for i in range(len(users))}
 
-            st.session_state.gpt_limit_state = {f'number{i}': gptlimit.iloc[i] for i in range(len(users))}
+            # st.session_state.gpt_limit_state = {f'number{i}': gptlimit.iloc[i] for i in range(len(selected_user))}
 
             for i, row in df.iterrows():
                 col31, col32, col33, col34, col35 = st.columns((1, 3, 2, 2, 2))
@@ -826,24 +984,8 @@ def admin_panel():
                         args=(id,number_key),
                         min_value=0
                     )
-                    
-    with col4:
-        new_data = st.file_uploader('Select File', type='xlsx')
-        if new_data:
-            if st.button('Concatenate'):
-                try:
-                    old_data = pd.read_excel('News GIS.xlsx')
-                    new_data = pd.read_excel(new_data)
-                    if len(new_data.columns) == len(old_data.columns) and (new_data.dtypes.values == old_data.dtypes.values).all():
-                        result = pd.concat([old_data, new_data], axis=0)
-                        result.to_excel('News GIS.xlsx', index=False)
-                        st.success('Data concatenated successfully')
-                        time.sleep(1.5)
-                        st.rerun()
-                    else:
-                        st.warning('Invalid Data, Try again with a different file.')
-                except Exception as e:
-                    st.error(f"Error occurred: {str(e)}")
+
+
         
 def increase_gpt_limit(user_id,number_key):
     if st.session_state[number_key] != st.session_state.gpt_limit_state[number_key]:
@@ -905,6 +1047,9 @@ def main_display(user_type,user_email):
     if st.sidebar.button('Logout',use_container_width=True):
         st.session_state.page = 'Login'
         st.session_state.logged_in = False
+        st.session_state.user_email = False
+        if user_type != "admin":
+            st.rerun()
         cookies['user_email'] = 'False'
         cookies['logged_in'] = 'False'
         cookies['page'] = 'Login'    
@@ -1223,8 +1368,7 @@ def main():
         st.session_state.selected_tab = None
     if 'user_email' not in st.session_state:
         st.session_state.user_email = None
-    if 'gpt_limit_state' not in st.session_state:
-        st.session_state.gpt_limit_state = None
+    
 
     
 

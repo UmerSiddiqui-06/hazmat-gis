@@ -127,7 +127,8 @@ class sqlpy:
             return False
     
     def add_new_login(self,email):
-        self.cursor.execute('INSERT INTO login_history (email, time) VALUES (?, CURRENT_TIMESTAMP)', (email,))
+        date = datetime.now().replace(microsecond=0)
+        self.cursor.execute('INSERT INTO login_history (email, time) VALUES (?, ?)', (email,date))
         self.conn.commit()
     
     def get_login_info(self,users_emails):
@@ -141,8 +142,9 @@ class sqlpy:
         return data
     
     def add_download_history(self,email,type,category,country,impact,severity,date):
+        download_date = datetime.now().replace(microsecond=0)
         self.cursor.execute("""INSERT INTO download_history (Email,Time,Type,Category,Country,Impact,Severity,Date) 
-            VALUES (?,CURRENT_TIMESTAMP,?,?,?,?,?,?)""",(email,type,category,country,impact,severity,date))
+            VALUES (?,?,?,?,?,?,?,?)""",(email,download_date,type,category,country,impact,severity,date))
         self.conn.commit()
 
     def get_download_history(self):
