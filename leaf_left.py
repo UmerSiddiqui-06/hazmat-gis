@@ -395,15 +395,54 @@ def register_page():
             if st.button('Back to Login'):
                 st.session_state.page = 'Login'
                 st.rerun()
+
+def centralize_content():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .main {
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+            text-align: center;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 def login_page():
-    columns = st.columns((2.5,5,2.5))
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .main {
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+            text-align: center;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    columns = st.columns(3)
     with columns[1]:
-        cols = st.columns((2.5,4,3.5))
-        with cols[1]:
-            st.image("logo.png",width=250)
-        cols = st.columns((2.2,7.8))
-        with cols[1]:    
-            st.header("HazMat GIS - Login")
+        st.image("logo1.png",width=280)   
+        st.header("HazMat GIS - Login")
+    cols = st.columns((2,6,2))
+    with cols[1]:
         with st.container(border=True):    
             email = st.text_input('Email')
             password = st.text_input('Password',type='password')
