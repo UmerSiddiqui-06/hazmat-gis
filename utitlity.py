@@ -77,8 +77,8 @@ class sqlpy:
             id = 'u1'
         else:
             id = 'u' + str(data[0] + 1)
-
-        self.cursor.execute('INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,ChatGpt_limit) VALUES (?,?,?,?,?,?,?)',(id,email,password,0,'Pending',0,5))
+        global_gpt = self.get_gpt_limit()
+        self.cursor.execute('INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,ChatGpt_limit) VALUES (?,?,?,?,?,?,?)',(id,email,password,0,'Pending',0,global_gpt))
         self.conn.commit()
 
     def check_login_admin(self,email,password):
@@ -225,7 +225,7 @@ class sqlpy:
         self.conn.commit()
 
     def set_gpt_limit(self,limit):
-        self.cursor.execute("UPDATE users SET ChatGpt_limit = ?",(limit,))
+        # self.cursor.execute("UPDATE users SET ChatGpt_limit = ?",(limit,))
         self.cursor.execute("UPDATE admin SET chatgpt_limit = ?",(limit,))
         self.conn.commit()
 

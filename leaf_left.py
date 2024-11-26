@@ -628,6 +628,7 @@ def admin_panel():
         users = conn.get_users()
         if users:
             df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGPT','Status', 'ChatGPT Usage','ChatGPT Usage Limit','Stopped Since'])
+            df = df[["ID","Email","Status"]]
             emails = list(df['Email'])
             if "selected_emails" not in st.session_state:
                 st.session_state.selected_emails = []
@@ -645,18 +646,18 @@ def admin_panel():
                 st.rerun()
 
             filtered_df = df[df["Email"].isin(st.session_state.selected_emails)] if st.session_state.selected_emails else df
-
+            
             gb = GridOptionsBuilder.from_dataframe(filtered_df)
             gb.configure_grid_options(domLayout="normal")
             gb.configure_selection(selection_mode="multiple")
             gb.configure_column("ID", tooltipField="ID") 
             gb.configure_column("Email", tooltipField="Email")
-            gb.configure_column("Password", tooltipField="Password") 
-            gb.configure_column("ChatGPT", tooltipField="ChatGPT")
+            # gb.configure_column("Password", tooltipField="Password") 
+            # gb.configure_column("ChatGPT", tooltipField="ChatGPT")
             gb.configure_column("Status", tooltipField="Status") 
-            gb.configure_column("ChatGPT Usage", tooltipField="ChatGPT Usage")
-            gb.configure_column("ChatGPT Usage Limit", tooltipField="ChatGPT Usage Limit") 
-            gb.configure_column("Stopped Since", tooltipField="Stopped Since")
+            # gb.configure_column("ChatGPT Usage", tooltipField="ChatGPT Usage")
+            # gb.configure_column("ChatGPT Usage Limit", tooltipField="ChatGPT Usage Limit") 
+            # gb.configure_column("Stopped Since", tooltipField="Stopped Since")
             gridOptions = gb.build()
 
             grid_response = AgGrid(
