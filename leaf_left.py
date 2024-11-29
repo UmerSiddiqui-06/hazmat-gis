@@ -627,7 +627,7 @@ def admin_panel():
     with col1:
         users = conn.get_users()
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGPT','Status', 'ChatGPT Usage','ChatGPT Usage Limit','Stopped Since'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGPT','Status', 'ChatGPT Usage','ChatGPT Usage Limit','Stopped Since','gptlimittype'])
             df = df[["ID","Email","Status"]]
             emails = list(df['Email'])
             if "selected_emails" not in st.session_state:
@@ -768,7 +768,7 @@ def admin_panel():
             
         data = get_download_history()
         df = pd.DataFrame(data,columns=['Email','Download Date','Type','Category','Country','Impact','Severity','Date'])
-        emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status','ChatGpt_used','ChatGpt_limit','Stopped Since'])
+        emails = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status','ChatGpt_used','ChatGpt_limit','Stopped Since','gptlimittype'])
         emails = list(emails['Email'])
         selected_user = st_tags(
             label="Search User", 
@@ -938,7 +938,7 @@ def admin_panel():
     with col3:
         users = conn.get_users()
         if users:
-            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','ChatGpt_limit','Stopped Since'])
+            df = pd.DataFrame(users,columns=['ID','Email','Password','ChatGpt','Status', 'ChatGpt_used','ChatGpt_limit','Stopped Since','gptlimittype'])
             emails = list(df['Email'])
             selected_user = st_tags(
                 label="Search User", 
@@ -955,7 +955,7 @@ def admin_panel():
             login_status = df['Status']
             login_status = [0 if row in ['Pending','Rejected'] else 1 for row in login_status]
             gptlimit = df['ChatGpt_limit']
-            df = df.drop(['Password', 'ChatGpt', 'Status','ChatGpt_used','Stopped Since'], axis=1)
+            df = df.drop(['Password', 'ChatGpt', 'Status','ChatGpt_used','Stopped Since','gptlimittype'], axis=1)
             df.columns = ['ID', 'Email','ChatGpt_limit']
             
             header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns((1, 3, 2, 2, 2))
