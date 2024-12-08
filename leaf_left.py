@@ -22,7 +22,8 @@ import io
 import base64
 from openai import OpenAI
 from streamlit_tags import st_tags
-
+import string
+import json
 
 st.set_page_config(layout="wide")
 
@@ -309,25 +310,20 @@ def password_generator():
 
 
 def send_email_code(recipient):
+    with open("Texts/email_code.json", "r") as file:
+        email_code = json.load(file)
     email = "HazMat.GIS@gmail.com"
     email_password = "edlxeiepcyjasoqg"
-    subject = "Your Verification Code for CBRNE"
+
     code = password_generator()
-    body = f"""
-    Dear User,
 
-    Thank you for registering with CBRNE. Please use the following code to verify your account:
-
-    **{code}**
-
-    If you did not request this code, please disregard this email.
-
-    Best regards,
-    The CBRNE Team
-    """
+    subject = email_code["subject"]
+    contents = email_code["contents"].replace("[code]", code)
+    
+    
     try:
         yag = yagmail.SMTP(email, email_password)
-        yag.send(to=recipient, subject=subject, contents=body)
+        yag.send(to=recipient, subject=subject, contents=contents)
     except Exception as e:
         st.error(f"Failed to send verification code")
     return code
@@ -337,21 +333,10 @@ def send_request_to_admin(user_email):
     email = "HazMat.GIS@gmail.com"
     email_password = "edlxeiepcyjasoqg"
     admin_email = "HazMat.GIS@gmail.com"
-    subject = "New User Registration Request"
-    body = f"""
-    Admin,
-
-    A new user has requested to register for CBRNE. Below are the user's details:
-
-    Email: {user_email}
-
-    
-    Please review the registration request here.
-    xyz.com
-
-    Best regards,
-    The CBRNE System
-    """
+    with open("Texts/email_code.json", "r") as file:
+        request_admin = json.load(file)
+    subject = request_admin["subject"]
+    body = request_admin["contents"].replace("[user_email]",user_email)
     try:
         yag = yagmail.SMTP(email, email_password)
         yag.send(to=admin_email, subject=subject, contents=body)
@@ -494,44 +479,61 @@ def login_page():
         with st.container(border=True):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            if st.button("Login"):
-                print(st.session_state.logged_in)
-                if not email:
-                    st.warning("Please enter email")
-                elif not password:
-                    st.warning("Please enter password")
-                else:
-                    is_admin = conn.check_login_admin(email, password)
-                    is_user = conn.check_login_user(email, password)
-                    if is_admin:
-                        st.session_state.logged_in = True
-                        cookies["logged_in"] = "True"
-                        cookies["user_type"] = "admin"
-                        cookies["page"] = "main_display"
-                        cookies.save()
-                        st.rerun()
-                    elif is_user == "Accepted":
-                        conn.add_new_login(email)
-                        st.session_state.user_email = email
-                        st.session_state.logged_in = True
-                        st.session_state.user_type = "user"
-                        st.session_state.user_email = email
-                        # cookies['user_email'] = email
-                        # cookies['logged_in'] =  'True'
-                        # cookies['user_type'] = 'user'
-                        # cookies['user_email'] = email
-                        # cookies.save()
-                        st.rerun()
-                    elif is_user == "Rejected":
-                        st.session_state.page = "Rejected"
-                        st.rerun()
-                    elif is_user == "Pending":
-                        st.session_state.page = "Pending"
-                        st.rerun()
+            columns = st.columns((4,3,3))
+            with columns[0]:
+                if st.button("Login"):
+                    print(st.session_state.logged_in)
+                    if not email:
+                        st.warning("Please enter email")
+                    elif not password:
+                        st.warning("Please enter password")
                     else:
-                        st.error("Wrong Password, Try Again")
+                        is_admin = conn.check_login_admin(email, password)
+                        is_user = conn.check_login_user(email, password)
+                        if is_admin:
+                            st.session_state.logged_in = True
+                            cookies["logged_in"] = "True"
+                            cookies["user_type"] = "admin"
+                            cookies["page"] = "admin_panel"
+                            cookies["user_email"] = email
+                            st.session_state.page = "admin_panel"
+                            st.session_state.user_email = email
+                            cookies.save()
+                            if conn.is_temporary_password(email):
+                                show_toast("This is a custom toast notification!")
+                            time.sleep(2)
+                            st.rerun()
+                        elif is_user == "Accepted":
+                            conn.add_new_login(email)
+                            st.session_state.user_email = email
+                            st.session_state.logged_in = True
+                            st.session_state.user_type = "user"
+                            st.session_state.user_email = email
+                            st.session_state.page = "main_display"
+                            if conn.is_temporary_password(email):
+                                show_toast("Your password is temporary. Please change it immediately!")
+                            time.sleep(3)
+                            # cookies['user_email'] = email
+                            # cookies['logged_in'] =  'True'
+                            # cookies['user_type'] = 'user'
+                            # cookies['user_email'] = email
+                            # cookies.save()
+                            st.rerun()
+                        elif is_user == "Rejected":
+                            st.session_state.page = "Rejected"
+                            st.rerun()
+                        elif is_user == "Pending":
+                            st.session_state.page = "Pending"
+                            st.rerun()
+                        else:
+                            st.error("Wrong Password, Try Again")
+                with columns[2]:
+                    if st.button("Forget Password"):
+                        st.session_state.page = "Forget_Password"
+                        st.rerun()
+                    
             col1, col2 = st.columns((3.2, 6.8))
-            col1.write("Don't have an account? ")
+            col1.write("Don't have an account?")
             if col2.button("Register"):
                 st.session_state.page = "Register"
                 st.rerun()
@@ -670,7 +672,7 @@ def display_col3():
 
 
 def admin_panel():
-    col1, col2, col3 = st.tabs(["Login History", "Download History", "Manage Access"])
+    col1, col2, col3, col4 = st.tabs(["Login History", "Download History", "Manage Access","GPT Stats"])
     with st.sidebar:
         # Go Back Button
         if st.button("Go Back"):
@@ -1161,6 +1163,129 @@ def admin_panel():
                 st.warning("Not Enough Data")
     with col3:
         display_col3()
+    
+    with col4:
+        history = conn.get_gpt_history()  # Replace with your actual method to get history
+        df = pd.DataFrame(history, columns=["Email", "Link", "Time"])
+
+        # Display the DataFrame using AgGrid
+        st.subheader("GPT History")
+
+        emails = list(df["Email"].unique())
+        if "selected_emails_gpt" not in st.session_state:
+            st.session_state.selected_emails_gpt = []
+
+        manual_emails = st.multiselect(
+            label="Search User",
+            placeholder="Enter email to search...",
+            options=emails,
+            default=st.session_state.selected_emails_gpt,
+            help="Select or type to search for users.",
+        )
+
+        if set(manual_emails) != set(st.session_state.selected_emails_gpt):
+            st.session_state.selected_emails_gpt = manual_emails
+            st.rerun()
+
+        filtered_df = (
+            df[df["Email"].isin(st.session_state.selected_emails_gpt)]
+            if st.session_state.selected_emails_gpt
+            else df
+        )
+
+        gb = GridOptionsBuilder.from_dataframe(filtered_df)
+        gb.configure_default_column(editable=False, groupable=True)  # Default column settings
+        gb.configure_column("Link", cellRenderer="hyperlinkCellRenderer")  # Make the link clickable
+        gb.configure_selection(selection_mode="multiple")
+        grid_options = gb.build()
+
+
+        grid_response = AgGrid(
+            filtered_df,
+            gridOptions=grid_options,
+            enable_enterprise_modules=True,
+            update_mode="MODEL_CHANGED",
+            height=400,
+            fit_columns_on_grid_load=True,
+            theme="alpine",
+        )
+
+        selected_rows = grid_response.get("selected_rows", [])
+
+        try:
+            grid_selected_emails = [email for email in selected_rows["Email"]]
+        except:
+            grid_selected_emails = []
+
+        final_selected_emails = list(
+            set(st.session_state.selected_emails_gpt).union(set(grid_selected_emails))
+        )
+
+        if set(final_selected_emails) != set(st.session_state.selected_emails_gpt):
+            st.session_state.selected_emails_gpt = final_selected_emails
+            st.rerun()
+        
+        usage = conn.get_gpt_usage()
+        df = pd.DataFrame(usage,columns=["Email","Usage","Limit"])
+
+        # Display the DataFrame using AgGrid
+        st.subheader("GPT Usage")
+
+        emails = list(df["Email"].unique())
+        if "selected_emails_usage" not in st.session_state:
+            st.session_state.selected_emails_usage = []
+
+        manual_emails = st.multiselect(
+            label="Search User",
+            placeholder="Enter email to search...",
+            options=emails,
+            default=st.session_state.selected_emails_usage,
+            help="Select or type to search for users.",
+            key="gpt_usage"
+        )
+
+        if set(manual_emails) != set(st.session_state.selected_emails_usage):
+            st.session_state.selected_emails_usage = manual_emails
+            st.rerun()
+
+        filtered_df = (
+            df[df["Email"].isin(st.session_state.selected_emails_usage)]
+            if st.session_state.selected_emails_usage
+            else df
+        )
+
+        gb = GridOptionsBuilder.from_dataframe(filtered_df)
+        gb.configure_default_column(editable=False, groupable=True)  # Default column settings
+        gb.configure_selection(selection_mode="multiple")
+        grid_options = gb.build()
+
+
+        grid_response = AgGrid(
+            filtered_df,
+            gridOptions=grid_options,
+            enable_enterprise_modules=True,
+            update_mode="MODEL_CHANGED",
+            height=400,
+            fit_columns_on_grid_load=True,
+            theme="alpine",
+        )
+
+        selected_rows = grid_response.get("selected_rows", [])
+
+        try:
+            grid_selected_emails = [email for email in selected_rows["Email"]]
+        except:
+            grid_selected_emails = []
+
+        final_selected_emails = list(
+            set(st.session_state.selected_emails_usage).union(set(grid_selected_emails))
+        )
+
+        if set(final_selected_emails) != set(st.session_state.selected_emails_usage):
+            st.session_state.selected_emails_usage = final_selected_emails
+            st.rerun()
+
+        
 
 
 def increase_gpt_limit(user_id, number_key):
@@ -1231,8 +1356,6 @@ def summarize():
     cookies["summarize"] = "True"
     # cookies.save()
 
-
-@st.fragment
 def render_aggrid(df_display, user_type, user_email):
     gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
     gb.configure_column("Category", minWidth=100)
@@ -1278,40 +1401,97 @@ def render_aggrid(df_display, user_type, user_email):
         fit_columns_on_grid_load=True,
     )
 
-    selected_row = grid_response.get("selected_rows", [])
-    chatgpt = conn.get_gpt_status()
-    if chatgpt and (
-        user_type == "admin"
-        or (
-            conn.get_user_gpt_status(user_email)
-            and conn.get_gpt_limit_check(user_email)
-        )
-    ):
-        if "summarize" not in st.session_state:
-            st.session_state.summarize = None
-        if cookies.get("summarize") == "True":
-            if selected_row is not None:
-                with st.container(border=True):
-                    st.subheader("Summary")
-                    url = selected_row["Link"][0]
-                    title = selected_row["Title"][0]
-                    if cookies.get(title) is not None:
-                        response = cookies.get(title)
-                    else:
-                        prompt = f"URL: {url} Title: {title} "
-                        with open("prompt.txt", "r") as file:
-                            content = file.read()
-                        prompt = prompt + content
-                        response = chatgpt_explain(prompt)
-                        cookies[title] = response
-                        if user_type != "admin":
-                            conn.increase_gpt(user_email)
-                    st.write(response)
+    return grid_response.get("selected_rows", [])
+   
 
-                cookies["summarize"] = "False"
-        else:
-            if selected_row is not None:
-                st.button("Summarize", on_click=summarize)
+def change_password(email):
+    st.write(email)
+    columns = st.columns((2.5,5,2.5))
+    with columns[1]:
+        st.subheader("Change Password")
+        with st.container(border=True):
+            current_password = st.text_input("Current Password",type="password")
+            new_password = st.text_input("New Password",type="password")
+            confirm_password = st.text_input("Confirm Password",type="password")
+            is_user =  conn.check_login_user(email,current_password)
+
+            is_admin = conn.check_login_admin(email,current_password)
+            columns = st.columns((2.5,4,3.5))
+            with columns[2]:
+                update_password = st.button("Update Password")
+            with columns[0]:
+                go_back = st.button("Go Back",key="back_chng_pass")
+            
+            if go_back:
+                st.session_state.logged_in = True
+                st.session_state.page = "main_display"
+                st.rerun()
+
+            elif update_password:
+                if is_user:
+                    if new_password != confirm_password:
+                        st.warning("Passwords do not match!")
+                    else:
+                        if valid_password(new_password):
+                            conn.update_password_users(email,new_password)
+                            st.success("Password updated successfully!")
+                        else:
+                            st.warning(
+                                "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
+                            )
+                elif is_admin:
+                    if new_password != confirm_password:
+                        st.warning("Passwords do not match!")
+                    else:
+                        if valid_password(new_password):
+                            conn.update_password_admin(email,new_password)
+                            st.success("Password updated successfully!")
+                        else:
+                            st.warning(
+                                "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
+                            )
+                else:
+                    st.warning("Wrong Password. Try Again")
+
+def show_toast(message, duration=2):
+    toast_html = f"""
+    <style>
+        .toast {{
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            background-color: #f8d7da; /* Soft red for warning */
+            color: #842029; /* Dark red for text */
+            border: 1px solid #f5c2c7; /* Subtle border to complement background */
+            border-radius: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern font */
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+            z-index: 1000;
+            opacity: 0;
+            animation: fadein {duration}s forwards;
+        }}
+
+        @keyframes fadein {{
+            0% {{
+                opacity: 0;
+                transform: translate(-50%, 20px); /* Slide up effect */
+            }}
+            100% {{
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }}
+        }}
+    </style>
+    <div class="toast">
+        ⚠️ {message}
+    </div>
+    """
+    st.markdown(toast_html, unsafe_allow_html=True)
+
 
 
 def main_display(user_type, user_email):
@@ -1320,8 +1500,11 @@ def main_display(user_type, user_email):
         if st.sidebar.button("Admin Panel", use_container_width=True):
             st.session_state.page = "admin_panel"
             cookies["page"] = "admin_panel"
-
             st.rerun()
+
+    if st.sidebar.button("Change Password",use_container_width=True):
+        st.session_state.page = "change_password"
+        st.rerun()
 
     if st.sidebar.button("Logout", use_container_width=True):
         st.session_state.page = "Login"
@@ -1574,34 +1757,45 @@ def main_display(user_type, user_email):
             args=[filters],
         )
 
-        render_aggrid(df_display, user_type, user_email)
-        # chatgpt = conn.get_gpt_status()
-        # if chatgpt and (user_type=='admin' or (conn.get_user_gpt_status(user_email) and conn.get_gpt_limit_check(user_email))):
-        #     if 'summarize' not in st.session_state:
-        #         st.session_state.summarize = None
-        #     if cookies.get('summarize') == 'True':
-        #         if selected_row is not None:
-        #             with st.container(border=True):
-        #                 st.subheader('Summary')
-        #                 url = selected_row['Link'][0]
-        #                 title = selected_row['Title'][0]
-        #                 if cookies.get(title) is not None:
-        #                     response = cookies.get(title)
-        #                 else:
-        #                     prompt = f"URL: {url} Title: {title} "
-        #                     with open('prompt.txt', 'r') as file:
-        #                         content = file.read()
-        #                     prompt = prompt + content
-        #                     response = chatgpt_explain(prompt)
-        #                     cookies[title] = response
-        #                     if user_type!="admin":
-        #                         conn.increase_gpt(user_email)
-        #                 st.write(response)
+        with st.container():
+            selected_row = render_aggrid(df_display,user_type,user_email)
+        chatgpt = conn.get_gpt_status()
+        if chatgpt and (
+            user_type == "admin"
+            or (
+                conn.get_user_gpt_status(user_email)
+                and conn.get_gpt_limit_check(user_email)
+            )
+        ):
+            if "summarize" not in st.session_state:
+                st.session_state.summarize = None
+            if cookies.get("summarize") == "True":
+                if selected_row is not None:
+                    with st.container(border=True):
+                        st.subheader("Summary")
+                        url = selected_row["Link"][0]
+                        title = selected_row["Title"][0]
+                        response = conn.get_gpt_response(url)
+                        if not response:
+                            if cookies.get(title) is not None:
+                                response = cookies.get(title)
+                            else:
+                                prompt = f"URL: {url} Title: {title} "
+                                with open("prompt.txt", "r") as file:
+                                    content = file.read()
+                                prompt = prompt + content
+                                response = chatgpt_explain(prompt)
+                                cookies[title] = response
+                        if user_type != "admin":
+                            conn.increase_gpt(user_email)
+                            conn.add_gpt_history(user_email,url)
+                            conn.add_gpt_response(url,response)
+                        st.write(response)
 
-        #             cookies['summarize'] = 'False'
-        #     else:
-        #         if selected_row is not None:
-        #             st.button('Summarize',on_click=summarize)
+                    cookies["summarize"] = "False"
+            else:
+                if selected_row is not None:
+                    st.button("Summarize", on_click=summarize)
 
     st.markdown("---")
     with st.expander("HazMat GIS Disclaimer", expanded=False):
@@ -1615,6 +1809,66 @@ def main_display(user_type, user_email):
         """
         )
 
+def generate_temp_password(length=8):
+    characters = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(random.choices(characters, k=length))
+
+# Function to check email and send temporary password
+def forget_password():
+    columns = st.columns((2.5,5,2.5))
+    with columns[1]:
+        with st.container(border=True):
+            st.title("Forget Password")
+
+            email = st.text_input("Enter your email")
+            
+            
+            columns = st.columns((2.5,5,2.5))
+            with columns[2]:
+                submit = st.button("Submit")
+            with columns[0]:
+                back_to_login = st.button("Back to Login")
+
+            if submit:
+                if not email:
+                    st.error("Email is required!")
+                    return
+                
+                user = conn.is_user_exist(email)
+                
+                if user:
+                    # Generate a temporary password
+                    temp_password = generate_temp_password()
+                    
+                    # Send the temporary password using yagmail
+                    try:
+                        admin_email = "HazMat.GIS@gmail.com"
+                        email_password = "edlxeiepcyjasoqg"
+                        yag = yagmail.SMTP(admin_email, email_password)
+                        
+                        with open("Texts/password_reset.json", "r") as file:
+                            password_reset = json.load(file)
+                        
+                        subject = password_reset["subject"]
+                        contents = password_reset["content"].replace("[TEMPORARY_PASSWORD]", temp_password)
+                    
+                        yag.send(
+                            to=email,
+                            subject=subject,
+                            contents=contents
+                        )
+                        st.success(f"A temporary password has been sent to {email}.")
+                        time.sleep(2)
+                        st.session_state.page = "Login"
+                        st.rerun()
+                    
+                    except Exception as e:
+                        st.error(f"Failed to send email: {e}")
+                else:
+                    st.error("Email not found!")
+            elif back_to_login:
+                st.session_state.page = "Login"
+                st.rerun()
 
 def main():
     # st.title("HazMat GIS")
@@ -1636,21 +1890,28 @@ def main():
         st.session_state.selected_tab = None
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
+    
+    if st.session_state.page == "Forget_Password":
+        forget_password()
 
-    if st.session_state.page == "code_verification":
+    elif st.session_state.page == "change_password":
+        change_password(st.session_state.user_email)
+    
+
+    elif st.session_state.page == "code_verification":
         code_verification(
             st.session_state.code,
             st.session_state.reg_email,
             st.session_state.reg_password,
         )
 
-    if st.session_state.page == "Rejected":
+    elif st.session_state.page == "Rejected":
         rejected_page()
 
-    if st.session_state.page == "Pending":
+    elif st.session_state.page == "Pending":
         pending_page()
 
-    if st.session_state.logged_in == True and st.session_state.user_email:
+    elif st.session_state.logged_in == True and st.session_state.user_email and st.session_state.page not in ["change_password","admin_panel"]:
         main_display(st.session_state.user_type, st.session_state.user_email)
     else:
 

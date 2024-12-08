@@ -18,6 +18,14 @@ class sqlpy:
                 remaining_time DATETIME,
                 chatgptlimittype VARCHAR(255)
                 );""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS temporary_password(
+                email VARCHAR(255),
+                is_temporary BOOL
+            )""")
+        
+        self.cursor.execute("SELECT * FROM temporary_password")
+        if not self.cursor.fetchone():
+            self.cursor.execute("INSERT INTO temporary_password (email,is_temporary) VALUES (?,?)",("temp4",True))
 
         # Create the admin table
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS admin (
@@ -45,6 +53,25 @@ class sqlpy:
                 Date VARCHAR(255)            
                 );""")
         
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS gpt_history(
+                email VARCHAR(255),
+                link TEXT,
+                time DATETIME
+            );""")
+        
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS gpt_responses(
+                Link VARCHAR(255),
+                Response TEXT
+            );""")
+        
+        self.cursor.execute("SELECT * FROM gpt_history")
+        data = self.cursor.fetchone()
+        if not data:
+            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:19"))
+            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:20"))
+            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:21"))
+            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:22"))
+        
         # Insert temporary user record
         self.cursor.execute('SELECT * FROM users')
         data = self.cursor.fetchone()
@@ -70,6 +97,38 @@ class sqlpy:
             return data[0]
         else:
             return None
+    
+    def get_gpt_history(self):
+        self.cursor.execute("SELECT * FROM gpt_history")
+        return self.cursor.fetchall()
+    
+    def add_gpt_history(self,email,link):
+        date = datetime.now().replace(microsecond=0)
+        self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",(email,link,date))
+        self.conn.commit()
+    
+    def get_gpt_response(self,link):
+        self.cursor.execute("SELECT Response FROM gpt_responses WHERE Link = ?",(link,))
+        data =  self.cursor.fetchone()
+        if data:
+            return data[0]
+        else:
+            return None
+    def is_temporary_password(self,email):
+        self.cursor.execute("SELECT is_temporary FROM temporary_password WHERE email = ?",(email,))
+        data = self.cursor.fetchone()
+        if data:
+            return data[0]
+        else:
+            return None
+    
+    def get_gpt_usage(self):
+        self.cursor.execute("SELECT email,ChatGpt_used,ChatGpt_limit FROM users")
+        return self.cursor.fetchall()
+    
+    def add_gpt_response(self,link,response):
+        self.cursor.execute("INSERT INTO gpt_responses (Link,Response) VALUES (?,?)",(link,response))
+        self.conn.commit()
         
     def register_user(self,email,password):
         self.cursor.execute("SELECT MAX(CAST(SUBSTR(user_id, 2) AS INTEGER)) FROM users")
@@ -176,8 +235,11 @@ class sqlpy:
 
     def get_user_gpt_status(self,email):
         self.cursor.execute('SELECT chatgpt FROM users WHERE email = ?',(email,))
-        chatgpt = self.cursor.fetchone()[0]
-        return chatgpt
+        chatgpt = self.cursor.fetchone()
+        if chatgpt:
+            return chatgpt[0]
+        else:
+            return None
     
     def get_user_download_history(self,users_emails):
         data = []
@@ -237,8 +299,21 @@ class sqlpy:
         data = self.cursor.fetchone()[0]
         return data
     
+    def update_password_users(self,email,password):
+        self.cursor.execute(
+            "UPDATE users SET password = ? WHERE email = ?",
+            (password, email)
+        )
 
-        
+        self.conn.commit()
+
+    def update_password_admin(self,email,password):
+        self.cursor.execute(
+            "UPDATE admin SET password = ? WHERE email = ?",
+            (password, email)
+        )
+
+        self.conn.commit()
 
         
         
