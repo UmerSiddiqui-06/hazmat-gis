@@ -25,7 +25,7 @@ from streamlit_tags import st_tags
 import string
 import json
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide",page_title="HazMat GIS")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
