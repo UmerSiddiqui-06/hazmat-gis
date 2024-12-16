@@ -318,7 +318,7 @@ def send_email_code(recipient):
     code = password_generator()
 
     subject = email_code["subject"]
-    contents = email_code["contents"].replace("[code]", code)
+    contents = email_code["contents"].replace("[code]", str(code))
     
     
     try:
@@ -348,12 +348,12 @@ def code_verification(code, email, password):
     columns = st.columns((2.5, 5, 2.5))
     with columns[1]:
         with st.container(border=True):
-            passcode = st.number_input("Enter 6-digit verification code: ", 0, 999999)
+            passcode = st.text_input("Enter 6-digit verification code: ")
             if st.button("Verify"):
                 if not passcode:
                     st.warning("Please enter valid passcode")
                 else:
-                    if code == passcode:
+                    if str(code) == passcode:
                         conn.register_user(email, password)
                         st.success("Your Registration Request has been submitted.")
                         send_request_to_admin(email)
@@ -498,6 +498,7 @@ def login_page():
                             cookies["user_email"] = email
                             st.session_state.page = "admin_panel"
                             st.session_state.user_email = email
+                            st.session_state.user_type = "admin"
                             cookies.save()
                             if conn.is_temporary_password(email):
                                 show_toast("This is a custom toast notification!")

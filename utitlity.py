@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime,timedelta
+import bcrypt
 
 class sqlpy:
     def __init__(self):
@@ -85,8 +86,9 @@ class sqlpy:
         # Insert admin record
         self.cursor.execute('SELECT * FROM admin')
         data = self.cursor.fetchone()
+        admin_password = bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt())
         if not data:
-            self.cursor.execute("INSERT INTO admin (email, password, chatgpt, chatgpt_limit) VALUES (?, ?, ?, ?)", ('admin', '0000',1,5))
+            self.cursor.execute("INSERT INTO admin (email, password, chatgpt, chatgpt_limit) VALUES (?, ?, ?, ?)", ('admin', admin_password,1,5))
         self.conn.commit()
 
     def get_status(self,email):
@@ -131,6 +133,7 @@ class sqlpy:
         self.conn.commit()
         
     def register_user(self,email,password):
+        password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         self.cursor.execute("SELECT MAX(CAST(SUBSTR(user_id, 2) AS INTEGER)) FROM users")
         data = self.cursor.fetchone()
         if data[0] is None:
@@ -141,20 +144,44 @@ class sqlpy:
         self.cursor.execute('INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,ChatGpt_limit,chatgptlimittype) VALUES (?,?,?,?,?,?,?,?)',(id,email,password,0,'Pending',0,global_gpt,"default"))
         self.conn.commit()
 
-    def check_login_admin(self,email,password):
-        self.cursor.execute('SELECT * FROM admin WHERE email = ? and password = ?',(email,password))
+    def check_login_admin(self, email, input_password):
+        # Fetch the stored hashed password for the given admin email
+        self.cursor.execute("SELECT * FROM admin WHERE email = ?", (email,))
         data = self.cursor.fetchone()
-        if data:
-            return 'admin'
-        else:
-            return None
-    def check_login_user(self,email,password):
-        self.cursor.execute("SELECT * FROM users WHERE email = ? and password = ?",(email,password))
-        data = self.cursor.fetchone()
+
         if not data:
+            # Email does not exist in the database
             return None
+
+        # Extract the hashed password from the database
+        stored_hashed_password = data[1]  # Assuming the password is stored in the third column
+
+        # Verify the input password with the stored hashed password
+        if bcrypt.checkpw(input_password.encode('utf-8'), stored_hashed_password):
+            return 'admin'  # Return 'admin' role if the login is successful
         else:
-            return data[4]
+            # Password does not match
+            return None
+
+    def check_login_user(self, email, input_password):
+        # Fetch the stored hashed password for the given email
+        self.cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        data = self.cursor.fetchone()
+
+        if not data:
+            # Email does not exist in the database
+            return None
+
+        # Extract the hashed password from the database
+        stored_hashed_password = data[2]  # Assuming the password is stored in the third column
+
+        # Verify the input password with the stored hashed password
+        if bcrypt.checkpw(input_password.encode('utf-8'), stored_hashed_password.encode('utf-8')):
+            return data[4]  # Return the desired value (e.g., user ID or role)
+        else:
+            # Password does not match
+            return None
+
         
     def get_users(self):
         self.cursor.execute("SELECT * FROM users")
