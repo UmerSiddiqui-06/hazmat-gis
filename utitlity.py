@@ -74,15 +74,16 @@ class sqlpy:
             self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:21"))
             self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:22"))
         
-        # Insert temporary user record
+        
         self.cursor.execute('SELECT * FROM users')
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u1','temp','0000',0,'Accepted',0,None,5,"defualt"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u2','temp1','0000',1,'Pending',0,None,5,"default"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u3','temp2','0000',1,'Rejected',0,None,5,"default"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u4','temp3','0000',1,'Accepted',4,None,5,"default"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u5','temp4','0000',1,'Accepted',5,datetime.now()-timedelta(days=40),5,"default"))
+            password = bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt())
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u1','temp',password,0,'Accepted',0,None,5,"defualt"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u2','temp1',password,1,'Pending',0,None,5,"default"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u3','temp2',password,1,'Rejected',0,None,5,"default"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u4','temp3',password,1,'Accepted',4,None,5,"default"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,remaining_time,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u5','temp4',password,1,'Accepted',5,datetime.now()-timedelta(days=40),5,"default"))
 
         # Insert admin record
         self.cursor.execute('SELECT * FROM admin')
@@ -178,7 +179,7 @@ class sqlpy:
         stored_hashed_password = data[2]  # Assuming the password is stored in the third column
 
         # Verify the input password with the stored hashed password
-        if bcrypt.checkpw(input_password.encode('utf-8'), stored_hashed_password.encode('utf-8')):
+        if bcrypt.checkpw(input_password.encode('utf-8'), stored_hashed_password):
             return data[4]  # Return the desired value (e.g., user ID or role)
         else:
             # Password does not match
