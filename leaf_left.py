@@ -24,8 +24,11 @@ from openai import OpenAI
 from streamlit_tags import st_tags
 import string
 import json
+from streamlit_js_eval import streamlit_js_eval
+from streamlit_modal import Modal
 
-st.set_page_config(layout="wide",page_title="HazMat GIS")
+
+st.set_page_config(layout="wide", page_title="HazMat GIS")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
@@ -319,8 +322,7 @@ def send_email_code(recipient):
 
     subject = email_code["subject"]
     contents = email_code["contents"].replace("[code]", str(code))
-    
-    
+
     try:
         yag = yagmail.SMTP(email, email_password)
         yag.send(to=recipient, subject=subject, contents=contents)
@@ -336,7 +338,7 @@ def send_request_to_admin(user_email):
     with open("Texts/email_code.json", "r") as file:
         request_admin = json.load(file)
     subject = request_admin["subject"]
-    body = request_admin["contents"].replace("[user_email]",user_email)
+    body = request_admin["contents"].replace("[user_email]", user_email)
     try:
         yag = yagmail.SMTP(email, email_password)
         yag.send(to=admin_email, subject=subject, contents=body)
@@ -479,7 +481,7 @@ def login_page():
         with st.container(border=True):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            columns = st.columns((4,3,3))
+            columns = st.columns((4, 3, 3))
             with columns[0]:
                 if st.button("Login"):
                     print(st.session_state.logged_in)
@@ -512,7 +514,9 @@ def login_page():
                             st.session_state.user_email = email
                             st.session_state.page = "main_display"
                             if conn.is_temporary_password(email):
-                                show_toast("Your password is temporary. Please change it immediately!")
+                                show_toast(
+                                    "Your password is temporary. Please change it immediately!"
+                                )
                             time.sleep(3)
                             # cookies['user_email'] = email
                             # cookies['logged_in'] =  'True'
@@ -532,7 +536,7 @@ def login_page():
                     if st.button("Forget Password"):
                         st.session_state.page = "Forget_Password"
                         st.rerun()
-                    
+
             col1, col2 = st.columns((3.2, 6.8))
             col1.write("Don't have an account?")
             if col2.button("Register"):
@@ -548,7 +552,7 @@ def get_download_history():
     return conn.get_download_history()
 
 
-def display_col3():
+def display_col1():
     users = conn.get_users()
     if users:
         df = pd.DataFrame(
@@ -604,11 +608,11 @@ def display_col3():
         with header_col2:
             st.markdown("### Email")
         with header_col3:
-            st.markdown("### ChatGpt")
+            st.markdown("### Access")
         with header_col4:
-            st.markdown("### Status")
+            st.markdown("### GPT Access")
         with header_col5:
-            st.markdown("### GptLimit")
+            st.markdown("### GPT Limit")
 
         if "toggle_states_gpt" not in st.session_state:
             st.session_state.toggle_states_gpt = {
@@ -636,7 +640,7 @@ def display_col3():
             with col32:
                 st.write("")
                 st.write(row["Email"])
-            with col33:
+            with col34:
                 st.write("")
                 toggle_key_1 = f"t{i}"
                 new_value = st.toggle(
@@ -646,7 +650,7 @@ def display_col3():
                     on_change=toggle_change_callback_gpt,
                     args=(id, toggle_key_1),
                 )
-            with col34:
+            with col33:
                 st.write("")
                 toggle_key = f"t1{i}"
                 new_value = st.toggle(
@@ -660,7 +664,7 @@ def display_col3():
                 number_key = f"number{i}"
                 st.markdown("")
                 st.number_input(
-                    "",
+                    " ",
                     key=f"number{i}",
                     label_visibility="collapsed",
                     value=st.session_state.gpt_limit_state[number_key],
@@ -673,7 +677,9 @@ def display_col3():
 
 
 def admin_panel():
-    col1, col2, col3, col4 = st.tabs(["Login History", "Download History", "Manage Access","GPT Stats"])
+    col1, col2, col3, col4 = st.tabs(
+        ["Manage Access", "Login History", "Download History", "GPT Stats"]
+    )
     with st.sidebar:
         # Go Back Button
         if st.button("Go Back"):
@@ -748,7 +754,7 @@ def admin_panel():
         # Add separator between sections for better readability
         st.sidebar.markdown("---")
 
-    with col1:
+    with col2:
         users = conn.get_users()
         if users:
             df = pd.DataFrame(
@@ -926,7 +932,7 @@ def admin_panel():
                         st.warning("Not Enough Data")
         else:
             st.warning("Not Enough Data")
-    with col2:
+    with col3:
         users = conn.get_users()
         # if users:
 
@@ -1162,12 +1168,14 @@ def admin_panel():
                 )
             else:
                 st.warning("Not Enough Data")
-    with col3:
-        display_col3()
-    
+    with col1:
+        display_col1()
+
     with col4:
-        history = conn.get_gpt_history()  # Replace with your actual method to get history
-        df = pd.DataFrame(history, columns=["Email", "Link", "Time"])
+        history = (
+            conn.get_gpt_history()
+        )  # Replace with your actual method to get history
+        df = pd.DataFrame(history, columns=["Email", "Link", "Title", "Time"])
 
         # Display the DataFrame using AgGrid
         st.subheader("GPT History")
@@ -1180,7 +1188,7 @@ def admin_panel():
             label="Search User",
             placeholder="Enter email to search...",
             options=emails,
-            default=st.session_state.selected_emails_gpt,
+            default=[],
             help="Select or type to search for users.",
         )
 
@@ -1193,13 +1201,12 @@ def admin_panel():
             if st.session_state.selected_emails_gpt
             else df
         )
-
+        
         gb = GridOptionsBuilder.from_dataframe(filtered_df)
-        gb.configure_default_column(editable=False, groupable=True)  # Default column settings
-        gb.configure_column("Link", cellRenderer="hyperlinkCellRenderer")  # Make the link clickable
-        gb.configure_selection(selection_mode="multiple")
-        grid_options = gb.build()
+        
 
+        gb.configure_selection(selection_mode="single")
+        grid_options = gb.build()
 
         grid_response = AgGrid(
             filtered_df,
@@ -1209,9 +1216,32 @@ def admin_panel():
             height=400,
             fit_columns_on_grid_load=True,
             theme="alpine",
+            allow_unsafe_jscode=True,
         )
-
-        selected_rows = grid_response.get("selected_rows", [])
+        modal = Modal(key="example_modal", title="Link Details")
+        selected_row = grid_response.get("selected_rows", [])
+        if selected_row is not None:
+            row_data = selected_row.iloc[0]  # Access the first selected row
+            if st.button("Show Details"):
+                
+                with modal.container():  # Use st.container() for a scoped layout
+                    link = row_data["Link"]
+                    st.markdown(f'''
+                        <a href="{link}" target="_blank" style="
+                            text-decoration: none;
+                            padding: 8px 15px;
+                            background-color: #0e1117;  /* Blue background color */
+                            color: white;
+                            border-radius: 7px;
+                            text-align: center;
+                            display: inline-block;
+                            border: 7px solid black;  /* Black border */
+                        ">
+                            Open Link
+                        </a>
+                    ''', unsafe_allow_html=True)
+                    response = conn.get_gpt_response(row_data["Link"])
+                    st.write("Summary Response:", response)  
 
         try:
             grid_selected_emails = [email for email in selected_rows["Email"]]
@@ -1225,9 +1255,9 @@ def admin_panel():
         if set(final_selected_emails) != set(st.session_state.selected_emails_gpt):
             st.session_state.selected_emails_gpt = final_selected_emails
             st.rerun()
-        
+
         usage = conn.get_gpt_usage()
-        df = pd.DataFrame(usage,columns=["Email","Usage","Limit"])
+        df = pd.DataFrame(usage, columns=["Email", "Usage", "Limit"])
 
         # Display the DataFrame using AgGrid
         st.subheader("GPT Usage")
@@ -1242,7 +1272,7 @@ def admin_panel():
             options=emails,
             default=st.session_state.selected_emails_usage,
             help="Select or type to search for users.",
-            key="gpt_usage"
+            key="gpt_usage",
         )
 
         if set(manual_emails) != set(st.session_state.selected_emails_usage):
@@ -1256,10 +1286,11 @@ def admin_panel():
         )
 
         gb = GridOptionsBuilder.from_dataframe(filtered_df)
-        gb.configure_default_column(editable=False, groupable=True)  # Default column settings
+        gb.configure_default_column(
+            editable=False, groupable=True
+        )  # Default column settings
         gb.configure_selection(selection_mode="multiple")
         grid_options = gb.build()
-
 
         grid_response = AgGrid(
             filtered_df,
@@ -1285,8 +1316,6 @@ def admin_panel():
         if set(final_selected_emails) != set(st.session_state.selected_emails_usage):
             st.session_state.selected_emails_usage = final_selected_emails
             st.rerun()
-
-        
 
 
 def increase_gpt_limit(user_id, number_key):
@@ -1357,6 +1386,7 @@ def summarize():
     cookies["summarize"] = "True"
     # cookies.save()
 
+
 def render_aggrid(df_display, user_type, user_email):
     gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
     gb.configure_column("Category", minWidth=100)
@@ -1403,26 +1433,26 @@ def render_aggrid(df_display, user_type, user_email):
     )
 
     return grid_response.get("selected_rows", [])
-   
+
 
 def change_password(email):
     st.write(email)
-    columns = st.columns((2.5,5,2.5))
+    columns = st.columns((2.5, 5, 2.5))
     with columns[1]:
         st.subheader("Change Password")
         with st.container(border=True):
-            current_password = st.text_input("Current Password",type="password")
-            new_password = st.text_input("New Password",type="password")
-            confirm_password = st.text_input("Confirm Password",type="password")
-            is_user =  conn.check_login_user(email,current_password)
+            current_password = st.text_input("Current Password", type="password")
+            new_password = st.text_input("New Password", type="password")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            is_user = conn.check_login_user(email, current_password)
 
-            is_admin = conn.check_login_admin(email,current_password)
-            columns = st.columns((2.5,4,3.5))
+            is_admin = conn.check_login_admin(email, current_password)
+            columns = st.columns((2.5, 4, 3.5))
             with columns[2]:
                 update_password = st.button("Update Password")
             with columns[0]:
-                go_back = st.button("Go Back",key="back_chng_pass")
-            
+                go_back = st.button("Go Back", key="back_chng_pass")
+
             if go_back:
                 st.session_state.logged_in = True
                 st.session_state.page = "main_display"
@@ -1434,7 +1464,7 @@ def change_password(email):
                         st.warning("Passwords do not match!")
                     else:
                         if valid_password(new_password):
-                            conn.update_password_users(email,new_password)
+                            conn.update_password_users(email, new_password)
                             st.success("Password updated successfully!")
                         else:
                             st.warning(
@@ -1445,7 +1475,7 @@ def change_password(email):
                         st.warning("Passwords do not match!")
                     else:
                         if valid_password(new_password):
-                            conn.update_password_admin(email,new_password)
+                            conn.update_password_admin(email, new_password)
                             st.success("Password updated successfully!")
                         else:
                             st.warning(
@@ -1453,6 +1483,7 @@ def change_password(email):
                             )
                 else:
                     st.warning("Wrong Password. Try Again")
+
 
 def show_toast(message, duration=2):
     toast_html = f"""
@@ -1494,7 +1525,6 @@ def show_toast(message, duration=2):
     st.markdown(toast_html, unsafe_allow_html=True)
 
 
-
 def main_display(user_type, user_email):
     # st.sidebar.image('logo.png',width=120)
     if user_type == "admin":
@@ -1503,7 +1533,7 @@ def main_display(user_type, user_email):
             cookies["page"] = "admin_panel"
             st.rerun()
 
-    if st.sidebar.button("Change Password",use_container_width=True):
+    if st.sidebar.button("Change Password", use_container_width=True):
         st.session_state.page = "change_password"
         st.rerun()
 
@@ -1759,7 +1789,7 @@ def main_display(user_type, user_email):
         )
 
         with st.container():
-            selected_row = render_aggrid(df_display,user_type,user_email)
+            selected_row = render_aggrid(df_display, user_type, user_email)
         chatgpt = conn.get_gpt_status()
         if chatgpt and (
             user_type == "admin"
@@ -1789,8 +1819,8 @@ def main_display(user_type, user_email):
                                 cookies[title] = response
                         if user_type != "admin":
                             conn.increase_gpt(user_email)
-                            conn.add_gpt_history(user_email,url)
-                            conn.add_gpt_response(url,response)
+                            conn.add_gpt_history(user_email, url, title)
+                            conn.add_gpt_response(url, response)
                         st.write(response)
 
                     cookies["summarize"] = "False"
@@ -1810,21 +1840,22 @@ def main_display(user_type, user_email):
         """
         )
 
+
 def generate_temp_password(length=8):
     characters = string.ascii_letters + string.digits + string.punctuation
-    return ''.join(random.choices(characters, k=length))
+    return "".join(random.choices(characters, k=length))
+
 
 # Function to check email and send temporary password
 def forget_password():
-    columns = st.columns((2.5,5,2.5))
+    columns = st.columns((2.5, 5, 2.5))
     with columns[1]:
         with st.container(border=True):
             st.title("Forget Password")
 
             email = st.text_input("Enter your email")
-            
-            
-            columns = st.columns((2.5,5,2.5))
+
+            columns = st.columns((2.5, 5, 2.5))
             with columns[2]:
                 submit = st.button("Submit")
             with columns[0]:
@@ -1834,35 +1865,33 @@ def forget_password():
                 if not email:
                     st.error("Email is required!")
                     return
-                
+
                 user = conn.is_user_exist(email)
-                
+
                 if user:
                     # Generate a temporary password
                     temp_password = generate_temp_password()
-                    
+
                     # Send the temporary password using yagmail
                     try:
                         admin_email = "HazMat.GIS@gmail.com"
                         email_password = "edlxeiepcyjasoqg"
                         yag = yagmail.SMTP(admin_email, email_password)
-                        
+
                         with open("Texts/password_reset.json", "r") as file:
                             password_reset = json.load(file)
-                        
+
                         subject = password_reset["subject"]
-                        contents = password_reset["content"].replace("[TEMPORARY_PASSWORD]", temp_password)
-                    
-                        yag.send(
-                            to=email,
-                            subject=subject,
-                            contents=contents
+                        contents = password_reset["content"].replace(
+                            "[TEMPORARY_PASSWORD]", temp_password
                         )
+
+                        yag.send(to=email, subject=subject, contents=contents)
                         st.success(f"A temporary password has been sent to {email}.")
                         time.sleep(2)
                         st.session_state.page = "Login"
                         st.rerun()
-                    
+
                     except Exception as e:
                         st.error(f"Failed to send email: {e}")
                 else:
@@ -1870,6 +1899,7 @@ def forget_password():
             elif back_to_login:
                 st.session_state.page = "Login"
                 st.rerun()
+
 
 def main():
     # st.title("HazMat GIS")
@@ -1891,13 +1921,12 @@ def main():
         st.session_state.selected_tab = None
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
-    
+
     if st.session_state.page == "Forget_Password":
         forget_password()
 
     elif st.session_state.page == "change_password":
         change_password(st.session_state.user_email)
-    
 
     elif st.session_state.page == "code_verification":
         code_verification(
@@ -1912,7 +1941,11 @@ def main():
     elif st.session_state.page == "Pending":
         pending_page()
 
-    elif st.session_state.logged_in == True and st.session_state.user_email and st.session_state.page not in ["change_password","admin_panel"]:
+    elif (
+        st.session_state.logged_in == True
+        and st.session_state.user_email
+        and st.session_state.page not in ["change_password", "admin_panel"]
+    ):
         main_display(st.session_state.user_type, st.session_state.user_email)
     else:
 

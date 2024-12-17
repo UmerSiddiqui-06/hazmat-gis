@@ -57,6 +57,7 @@ class sqlpy:
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS gpt_history(
                 email VARCHAR(255),
                 link TEXT,
+                title TEXT,
                 time DATETIME
             );""")
         
@@ -68,10 +69,10 @@ class sqlpy:
         self.cursor.execute("SELECT * FROM gpt_history")
         data = self.cursor.fetchone()
         if not data:
-            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:19"))
-            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:20"))
-            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:21"))
-            self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","11:22"))
+            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp","https://www.reuters.com/world/asia-pacific/unstable-nuclear-waste-dams-threaten-fertile-central-asia-heartland-2024-04-23/","temp","11:19"))
+            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:20"))
+            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:21"))
+            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:22"))
         
         # Insert temporary user record
         self.cursor.execute('SELECT * FROM users')
@@ -104,12 +105,13 @@ class sqlpy:
         self.cursor.execute("SELECT * FROM gpt_history")
         return self.cursor.fetchall()
     
-    def add_gpt_history(self,email,link):
+    def add_gpt_history(self,email,link,title):
         date = datetime.now().replace(microsecond=0)
-        self.cursor.execute("INSERT INTO gpt_history (email,link,time) VALUES (?,?,?)",(email,link,date))
+        self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",(email,link,title,date))
         self.conn.commit()
     
     def get_gpt_response(self,link):
+        print("helo\nhelo\neo\n\hello\nhe;;o")
         self.cursor.execute("SELECT Response FROM gpt_responses WHERE Link = ?",(link,))
         data =  self.cursor.fetchone()
         if data:
