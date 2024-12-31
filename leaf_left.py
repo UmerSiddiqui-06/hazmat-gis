@@ -141,12 +141,12 @@ def create_popup_content(row):
                 <td style="padding: 8px; border: 1px solid #ddd;">{row['City']}, {row['Country']}</td>
             </tr>
             <tr>
-                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Casualty:</strong></td>
-                <td style="padding: 8px; border: 1px solid #ddd;">{row['Casualty']}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Casuality:</strong></td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{row['Casuality']}</td>
             </tr>
             <tr style="background-color: #f2f2f2;">
-                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Injury:</strong></td>
-                <td style="padding: 8px; border: 1px solid #ddd;">{row['Injury']}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Injuries:</strong></td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{row['Injuries']}</td>
             </tr>
             <tr>
                 <td style="padding: 8px; border: 1px solid #ddd;"><strong>Impact:</strong></td>
@@ -158,7 +158,7 @@ def create_popup_content(row):
             </tr>
         </table>
         <p style="margin-top: 10px;">
-            <a href="{row['Link']}" target="_blank" style="color: #3366cc; text-decoration: none;">Read More</a>
+            <a href="{row['Full Link']}" target="_blank" style="color: #3366cc; text-decoration: none;">Read More</a>
         </p>
     </div>
     """
@@ -733,20 +733,31 @@ def admin_panel():
                     
                     old_data = pd.read_excel("News GIS.xlsx")
                     new_data = pd.read_excel(new_data_file)
+                    columns_to_strip = ["Type", "Category", "Impact", "Severity"]
+                    new_data[columns_to_strip] = new_data[columns_to_strip].apply(lambda col: col.str.strip())
+                    new_data['Category'] = new_data['Category'].str.title()
+                    new_data['Impact'] = new_data['Impact'].str.title()
                     columns_to_clean = ["Type", "Category", "Impact", "Severity"]
                     for column in columns_to_clean:
                         if column in new_data.columns:
                             new_data[column] = new_data[column].str.strip()
                      
                     valid_type = {"Incident", "Activity"}
-                    valid_category = {"Explosive", "Biological", "Radiological", "Chemical"}
-                    valid_impact = {"Infrastructure", "Human", "Environment", "Economic"}
+                    valid_category = {"Explosive", "Biological", "Radiological", "Chemical", "Nuclear"}
+                    valid_impact = {"Infrastructure", "Human", "Environmental", "Economic", "Nuclear", "Animal"}
                     valid_severity = {"Low", "Medium"}
 
-                    new_data["Type_Valid"] = new_data["Type"].isin(valid_type)
-                    new_data["Category_Valid"] = new_data["Category"].isin(valid_category)
-                    new_data["Impact_Valid"] = new_data["Impact"].isin(valid_impact)
-                    new_data["Severity_Valid"] = new_data["Severity"].isin(valid_severity)
+                    # Function to check if any value in a comma-separated list is valid
+                    def check_validity(value, valid_set):
+                        # Split the value by commas, strip whitespace, and check if any part is in the valid set
+                        values = {item.strip() for item in value.split(',')}
+                        return values.issubset(valid_set)
+
+                    # Apply the validity checks
+                    new_data["Type_Valid"] = new_data["Type"].apply(lambda x: check_validity(x, valid_type))
+                    new_data["Category_Valid"] = new_data["Category"].apply(lambda x: check_validity(x, valid_category))
+                    new_data["Impact_Valid"] = new_data["Impact"].apply(lambda x: check_validity(x, valid_impact))
+                    new_data["Severity_Valid"] = new_data["Severity"].apply(lambda x: check_validity(x, valid_severity))
 
                     conditions = (
                         new_data["Type_Valid"]
@@ -1445,13 +1456,13 @@ def render_aggrid(df_display, user_type, user_email):
     gb.configure_column("City", minWidth=200)
     gb.configure_column("Date", minWidth=100)
     gb.configure_column("Impact", minWidth=150)
-    gb.configure_column("Casualty", minWidth=50)
-    gb.configure_column("Injury", minWidth=50)
-    gb.configure_column("Link", minWidth=100)
+    gb.configure_column("Casuality", minWidth=50)
+    gb.configure_column("Injuries", minWidth=50)
+    gb.configure_column("Full Link", minWidth=100)
     gb.configure_column("Severity", minWidth=100)
     gb.configure_selection("single", use_checkbox=True)
     gb.configure_column(
-        "Link",
+        "Full Link",
         headerName="Link",
         cellRenderer=JsCode(
             """
@@ -1788,9 +1799,9 @@ def main_display(user_type, user_email):
         st.subheader("Incident Heatmap")
 
         link_counts = (
-            filtered_data.groupby(["Country", "City"])["Link"].count().reset_index()
+            filtered_data.groupby(["Country", "City"])["Full Link"].count().reset_index()
         )
-        link_counts = link_counts.rename(columns={"Link": "LinkCount"})
+        link_counts = link_counts.rename(columns={"Full Link": "LinkCount"})
         heatmap_data = pd.merge(filtered_data, link_counts, on=["Country", "City"])
 
         heat_data = heatmap_data[heatmap_data["Coordinates"].notna()][
@@ -1811,11 +1822,11 @@ def main_display(user_type, user_email):
             "Country",
             "City",
             "Date",
-            "Casualty",
-            "Injury",
+            "Casuality",
+            "Injuries",
             "Impact",
             "Severity",
-            "Link",
+            "Full Link",
         ]
         df_display = filtered_data[display_columns].copy()
         df_display["Date"] = df_display["Date"].dt.strftime("%d-%m-%Y")
@@ -1853,25 +1864,36 @@ def main_display(user_type, user_email):
                 st.session_state.summarize = None
             if cookies.get("summarize") == "True":
                 if selected_row is not None:
-                    with st.container(border=True):
+                    with st.container():
                         st.subheader("Summary")
                         url = selected_row["Link"][0]
                         title = selected_row["Title"][0]
-                        response = conn.get_gpt_response(url)
-                        if not response:
-                            if cookies.get(title) is not None:
-                                response = cookies.get(title)
-                            else:
-                                prompt = f"URL: {url} Title: {title} "
-                                with open("prompt.txt", "r") as file:
-                                    content = file.read()
-                                prompt = prompt + content
-                                response = chatgpt_explain(prompt)
-                                cookies[title] = response
-                        if user_type != "admin":
-                            conn.increase_gpt(user_email)
-                            conn.add_gpt_history(user_email, url, title)
-                            conn.add_gpt_response(url, response)
+
+                        # Placeholder for loader
+                        loader_placeholder = st.empty()
+
+                        with loader_placeholder:
+                            # Display loading spinner
+                            with st.spinner("Generating response, please wait..."):
+                                response = conn.get_gpt_response(url)
+                                if not response:
+                                    if cookies.get(title) is not None:
+                                        response = cookies.get(title)
+                                    else:
+                                        prompt = f"URL: {url} Title: {title} "
+                                        with open("prompt.txt", "r") as file:
+                                            content = file.read()
+                                        prompt = prompt + content
+                                        response = chatgpt_explain(prompt)
+                                        cookies[title] = response
+
+                                if user_type != "admin":
+                                    conn.increase_gpt(user_email)
+                                    conn.add_gpt_history(user_email, url, title)
+                                    conn.add_gpt_response(url, response)
+
+                        # Clear loader and display response
+                        loader_placeholder.empty()
                         st.write(response)
 
                     cookies["summarize"] = "False"
