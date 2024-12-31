@@ -721,33 +721,83 @@ def admin_panel():
             del st.session_state.gpt_limit_state
             st.rerun()
 
-        # Header for Data Upload Section
         st.sidebar.header("Upload Data")
-        new_data = st.sidebar.file_uploader(
+        new_data_file = st.sidebar.file_uploader(
             "Upload an Excel File", type="xlsx", label_visibility="collapsed"
         )
 
-        if new_data:
+        if new_data_file:
             # Concatenate Data Button
             if st.sidebar.button("Concatenate Data"):
                 try:
+                    
                     old_data = pd.read_excel("News GIS.xlsx")
-                    new_data = pd.read_excel(new_data)
+                    new_data = pd.read_excel(new_data_file)
+                    columns_to_clean = ["Type", "Category", "Impact", "Severity"]
+                    for column in columns_to_clean:
+                        if column in new_data.columns:
+                            new_data[column] = new_data[column].str.strip()
+                     
+                    valid_type = {"Incident", "Activity"}
+                    valid_category = {"Explosive", "Biological", "Radiological", "Chemical"}
+                    valid_impact = {"Infrastructure", "Human", "Environment", "Economic"}
+                    valid_severity = {"Low", "Medium"}
 
-                    # Check for matching column structure
+                    new_data["Type_Valid"] = new_data["Type"].isin(valid_type)
+                    new_data["Category_Valid"] = new_data["Category"].isin(valid_category)
+                    new_data["Impact_Valid"] = new_data["Impact"].isin(valid_impact)
+                    new_data["Severity_Valid"] = new_data["Severity"].isin(valid_severity)
+
+                    conditions = (
+                        new_data["Type_Valid"]
+                        & new_data["Category_Valid"]
+                        & new_data["Impact_Valid"]
+                        & new_data["Severity_Valid"]
+                    )
+
+                    rejected_rows = new_data[~conditions].copy()
+                    rejected_rows["Failure_Reason"] = rejected_rows.apply(
+                        lambda row: ", ".join(
+                            [
+                                reason
+                                for reason, valid in [
+                                    ("Invalid Type", not row["Type_Valid"]),
+                                    ("Invalid Category", not row["Category_Valid"]),
+                                    ("Invalid Impact", not row["Impact_Valid"]),
+                                    ("Invalid Severity", not row["Severity_Valid"]),
+                                ]
+                                if valid
+                            ]
+                        ),
+                        axis=1,
+                    )
+
+                    new_data = new_data[conditions].drop(
+                        columns=["Type_Valid", "Category_Valid", "Impact_Valid", "Severity_Valid"]
+                    )
+
                     if (
                         len(new_data.columns) == len(old_data.columns)
                         and (new_data.dtypes.values == old_data.dtypes.values).all()
                     ):
+                        # Concatenate the data
                         result = pd.concat([old_data, new_data], axis=0)
                         result.to_excel("News GIS.xlsx", index=False)
                         st.sidebar.success("Data concatenated successfully")
-                        time.sleep(1.5)
-                        st.rerun()
+
+                        # Provide download button for rejected rows
+                        if not rejected_rows.empty:
+                            st.sidebar.download_button(
+                                label="Download Rejected Rows",
+                                data=rejected_rows.to_csv(index=False),
+                                file_name="Rejected_Rows.csv",
+                                mime="text/csv",
+                            )
+                        
+                        if st.button("Ignore"):
+                            st.rerun()
                     else:
-                        st.sidebar.warning(
-                            "Invalid Data, Try again with a different file."
-                        )
+                        st.sidebar.warning("Invalid Data, Try again with a different file.")
                 except Exception as e:
                     st.error(f"Error occurred: {str(e)}")
 
@@ -1564,7 +1614,7 @@ def main_display(user_type, user_email):
     st.sidebar.header("Date Range")
     date_filter = st.sidebar.radio(
         "Select time range:",
-        ("All Time", "Past Week", "Past Month", "Past Year", "Past Day", "Custom"),
+        ("All Time", "Past Day", "Past Week", "Past Month", "Past Year", "Custom"),
     )
 
     if date_filter == "Custom":
@@ -1615,11 +1665,11 @@ def main_display(user_type, user_email):
 
     with tab1:
         st.subheader("Incident Map")
-
+        
         selected_categories = st.session_state.get("selected_categories", None)
         m = create_folium_map(filtered_data, world, selected_categories)
 
-        folium_static(m, width=1400, height=500)
+        folium_static(m, width=900, height=500)
 
         category_counts = filtered_data["Category"].value_counts()
         color_map = {
@@ -1723,6 +1773,7 @@ def main_display(user_type, user_email):
         fig3.update_layout(
             template="plotly_white",
             height=300,
+            # width=300,
             xaxis_title="Date",
             yaxis_title="Number of Articles",
             showlegend=False,
