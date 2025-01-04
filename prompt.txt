@@ -1,34 +1,28 @@
-Title Creation: Write a clear and concise Title for the article, making sure it reflects the main focus of the article. If the article contains a location, mention the city and country where the events took place, if available.
+
+Title Creation:
+Write a clear and concise Title for the article, making sure it reflects the main focus of the article. If the article contains a location, mention the city and country where the events took place, if available.
 
 The Introduction:
+Begin by writing the Introduction of the article. This should be an extended, comprehensive summary that gives an overview of the topic covered in the article. The introduction should cover key points like who, what, where, when, and why (if applicable). If location information is available, ensure to include the city and country to give more context. Make sure to structure the introduction with enough detail to make it informative, yet easy to understand.
 
-Begin by writing The Introduction of the article. This should be an extended, comprehensive summary that gives an overview of the topic covered in the article. The introduction should cover key points like who, what, where, when, and why (if applicable).
-If location information is available, ensure to include the city and country to give more context.
-Make sure to structure the introduction with enough detail to make it informative, yet easy to understand.
 Brief Section:
+Create a brief about the article itself, using around 10 points. Each point should be expanded into a full sentence or two, providing deeper insight into specific details. The brief should focus on key aspects of the article, ensuring to capture any relevant background information that connects the story with past developments or related events. Each point should offer enough detail to give the reader an in-depth understanding without the need to read the entire article.
 
-Create a Brief about the article itself, using around 10 bullet points. Each point should be expanded into a full sentence or two, providing deeper insight into specific details.
-The brief should focus on key aspects of the article, ensuring to capture any relevant background information that connects the story with past developments or related events.
-Each bullet should offer enough detail to give the reader an in-depth understanding without the need to read the entire article.
 Expert Analysis:
+Offer an expert analysis in point form (approximately 10 points), showcasing your perspective as an expert in the field. Think of yourself as someone with decades of experience on the topic, and try to analyze all possible angles and implications of the article's subject. The analysis should focus on:
+- The broader impact of the news.
+- The implications for relevant countries, governments, or organizations.
+- Potential reactions from other stakeholders or countries involved (if applicable).
+- The long-term effects on the region, sector, or global stage.
+- Include scenarios, predictions, or forecasts based on the information in the article.
+Each point should contain a few sentences to provide depth and clear reasoning behind your analysis.
 
-Offer an Expert Analysis in bullet point form (approximately 10 points), showcasing your perspective as an expert in the field. Think of yourself as someone with decades of experience on the topic, and try to analyze all possible angles and implications of the article's subject.
-The analysis should focus on:
-The broader impact of the news.
-The implications for relevant countries, governments, or organizations.
-Potential reactions from other stakeholders or countries involved (if applicable).
-The long-term effects on the region, sector, or global stage.
-Include scenarios, predictions, or forecasts based on the information in the article.
-Each bullet point should contain a few sentences to provide depth and clear reasoning behind your analysis.
 Recommendations:
+Provide your recommendations based on the analysis you have provided, again as an expert in the field. The recommendations should be practical, considering real-world actions that governments, organizations, or policymakers should take in response to the news. The recommendations should cover potential solutions, mitigation steps, or actions to take to address the problem, improve the situation, or prevent future occurrences. Offer 5–10 recommendations, with each one expanded into a full-sentence suggestion, considering long-term and short-term solutions.
 
-Provide your Recommendations based on the analysis you have provided, again as an expert in the field. The recommendations should be practical, considering real-world actions that governments, organizations, or policymakers should take in response to the news.
-The recommendations should cover potential solutions, mitigation steps, or actions to take to address the problem, improve the situation, or prevent future occurrences.
-Offer 5–10 recommendations, with each one expanded into a full-sentence suggestion, considering long-term and short-term solutions.
 Translation to Arabic:
+After completing all sections in English, translate the entire response into Arabic while ensuring that text is properly formatted for right-to-left reading. Always ensure the English answers are presented left-to-right and the Arabic answers right-to-left.
 
-After completing all sections in English, translate the entire response into Arabic while ensuring that text is properly formatted for right-to-left reading.
-Always ensure the English answers are presented left-to-right and the Arabic answers right-to-left.
 Example Structure:
 
 Title:
@@ -36,19 +30,19 @@ Title:
 The Introduction:
 [Insert detailed and extended Introduction in English]
 Brief:
-Bullet Point 1: [Expanded sentence offering specific details]
-Bullet Point 2: [Expanded sentence offering specific details]
-Bullet Point 3: [Expanded sentence offering specific details]
+- [Expanded sentence offering specific details]
+- [Expanded sentence offering specific details]
+- [Expanded sentence offering specific details]
 … Continue up to 10 points.
 Expert Analysis:
-Bullet Point 1: [Expert analysis providing insight into the broader impact]
-Bullet Point 2: [Expert analysis providing insight into potential implications]
-Bullet Point 3: [Expert analysis considering long-term effects]
+- [Expert analysis providing insight into the broader impact]
+- [Expert analysis providing insight into potential implications]
+- [Expert analysis considering long-term effects]
 … Continue up to 10 points.
 Recommendations:
-Bullet Point 1: [Recommendation detailing actionable advice or mitigation steps]
-Bullet Point 2: [Recommendation considering long-term or short-term solutions]
-Bullet Point 3: [Recommendation offering preventive measures]
+- [Recommendation detailing actionable advice or mitigation steps]
+- [Recommendation considering long-term or short-term solutions]
+- [Recommendation offering preventive measures]
 … Continue up to 10 points.
 Arabic Translation:
 العنوان:
@@ -56,17 +50,17 @@ Arabic Translation:
 المقدمة:
 [Insert translated Introduction in Arabic]
 ملخص:
-النقطة الأولى: [Insert translated Bullet Point 1 in Arabic]
-النقطة الثانية: [Insert translated Bullet Point 2 in Arabic]
-النقطة الثالثة: [Insert translated Bullet Point 3 in Arabic]
+- [Insert translated point in Arabic]
+- [Insert translated point in Arabic]
+- [Insert translated point in Arabic]
 … Continue up to 10 points.
 التحليل الخبير:
-النقطة الأولى: [Insert translated Expert Analysis Point 1 in Arabic]
-النقطة الثانية: [Insert translated Expert Analysis Point 2 in Arabic]
-النقطة الثالثة: [Insert translated Expert Analysis Point 3 in Arabic]
+- [Insert translated Expert Analysis point in Arabic]
+- [Insert translated Expert Analysis point in Arabic]
+- [Insert translated Expert Analysis point in Arabic]
 … Continue up to 10 points.
 التوصيات:
-النقطة الأولى: [Insert translated Recommendation Point 1 in Arabic]
-النقطة الثانية: [Insert translated Recommendation Point 2 in Arabic]
-النقطة الثالثة: [Insert translated Recommendation Point 3 in Arabic]
+- [Insert translated Recommendation point in Arabic]
+- [Insert translated Recommendation point in Arabic]
+- [Insert translated Recommendation point in Arabic]
 … Continue up to 10 points.

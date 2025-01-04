@@ -28,7 +28,7 @@ from streamlit_js_eval import streamlit_js_eval
 from streamlit_modal import Modal
 
 
-st.set_page_config(layout="wide", page_title="HazMat GIS")
+st.set_page_config(layout="wide", page_title="HazMat GIS",page_icon="logo1.png")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
@@ -43,8 +43,6 @@ if not cookies.ready():
 # Connection with database
 conn = utitlity.sqlpy()
 
-
-@st.cache_data
 def load_data():
     data = pd.read_excel("News GIS.xlsx", engine="openpyxl")
     data["Date"] = pd.to_datetime(data["Date"])
@@ -85,6 +83,7 @@ def geocode(city, country):
 def preprocess_data(data):
     def geocode_and_correct(row):
         coords = geocode(row["City"], row["Country"])
+
         if coords is None:
             matches = fuzzy_match_city(row["City"])
             if matches:
@@ -453,30 +452,33 @@ def centralize_content():
 
 
 def login_page():
-    st.markdown(
-        """
-        <style>
-        .stApp {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-        .main {
-            width: 100%;
-            max-width: 800px;
-            margin: auto;
-            text-align: center;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    columns = st.columns(3)
-    with columns[1]:
-        st.image("logo1.png", width=280)
-        st.header("HazMat GIS - Login")
-    cols = st.columns((2, 6, 2))
+
+    # centralize_content()
+    c1,c2,c3 = st.columns(3)
+    with c2:
+        st.image("logo1.png", width=400)
+    c1,c2,c3 = st.columns((4,3,3))
+    with c2:
+        st.subheader("HazMat GIS - Login")
+    # st.markdown(
+    #     """
+    #     <style>
+    #     /* Set the total width of the page */
+    #     .main {
+    #         max-width: 100% !important; /* Set to 100% to take up the full screen width */
+    #         width: 100% !important;
+    #     }
+    #     /* Set custom max-width for content */
+    #     .block-container {
+    #         max-width: 1000px; /* You can modify this width */
+    #         margin: 0 auto;
+    #     }
+    #     </style>
+    #     """,
+    #     unsafe_allow_html=True,
+    # )
+    # # st.markdown("<h2>HazMat GIS - Login</h2>", unsafe_allow_html=True)
+    cols = st.columns((1, 8, 1))
     with cols[1]:
         with st.container(border=True):
             email = st.text_input("Email")
@@ -1461,6 +1463,8 @@ def render_aggrid(df_display, user_type, user_email):
     gb.configure_column("Full Link", minWidth=100)
     gb.configure_column("Severity", minWidth=100)
     gb.configure_selection("single", use_checkbox=True)
+    if user_type == "admin":
+        gb.configure_default_column(editable=True)
     gb.configure_column(
         "Full Link",
         headerName="Link",
@@ -1492,6 +1496,30 @@ def render_aggrid(df_display, user_type, user_email):
         theme="streamlit",
         fit_columns_on_grid_load=True,
     )
+    if user_type == "admin":
+        if grid_response['data'] is not None:
+            updated_df = pd.DataFrame(grid_response['data'])
+            original_data = df_display.reset_index(drop=True)
+            updated_data = updated_df.reset_index(drop=True)
+            if not updated_data.equals(original_data): 
+                if st.button("Save Changes"):
+                    full_data = load_data()
+                    
+                    # Update only the modified rows and cells
+                    for index, row in updated_data.iterrows():
+                        if not row.equals(original_data.loc[index]):  # Check if the row has changed
+                            for col in updated_data.columns:
+                                if row[col] != original_data.loc[index, col]:  # Check specific cell changes
+                                    # Find the corresponding index in the full_data DataFrame
+                                    full_index = full_data.index[original_data.index[index]]
+                                    full_data.loc[full_index, col] = row[col]
+                    
+                    # Save back the updated Excel file
+                    full_data.to_excel("News GIS.xlsx", index=False)
+                    st.success("Data saved to Excel successfully!")
+                    df_display = updated_df
+                    time.sleep(1)
+                    st.rerun()
 
     return grid_response.get("selected_rows", [])
 
@@ -1608,10 +1636,30 @@ def main_display(user_type, user_email):
         cookies["logged_in"] = "False"
         cookies["page"] = "Login"
         st.rerun()
-    data = load_data()
+    df = load_data()
     world = load_world()
+    split_rows = df.dropna(subset=["Country", "City"])
+    processed_split = (
+        split_rows.assign(
+            country_city=split_rows.apply(
+                lambda row: list(zip(row["Country"].split(", "), row["City"].split(", "))),
+                axis=1,
+            )
+        )
+        .explode("country_city")
+        .assign(
+            Country=lambda df: df["country_city"].str[0],
+            City=lambda df: df["country_city"].str[1],
+        )
+        .drop(columns=["country_city"])  # Drop intermediate column
+        .reset_index(drop=True)  # Reset index for clarity
+    )
 
-    data = preprocess_data(data)
+    # Append rows with missing values back to the processed DataFrame
+    missing_rows = df[df[["Country", "City"]].isnull().any(axis=1)]
+    final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
+
+    data = preprocess_data(final_df)
 
     search_term = st.text_input("Search incidents", "")
 
@@ -1748,7 +1796,7 @@ def main_display(user_type, user_email):
         fig2.update_traces(hovertemplate="<b>%{x}</b><br>Count: %{y}<extra></extra>")
 
         st.plotly_chart(fig2, use_container_width=True)
-
+        
         st.subheader("Trend of Articles Over Time")
         articles_by_date = (
             filtered_data.groupby("Date").size().reset_index(name="count")
@@ -1773,7 +1821,6 @@ def main_display(user_type, user_email):
             return (r + g + b) > 60
 
         filtered_colors = [color for color in all_colors if is_not_black(color)]
-
         fig3 = px.bar(
             articles_by_date,
             x="Date",
@@ -1866,7 +1913,7 @@ def main_display(user_type, user_email):
                 if selected_row is not None:
                     with st.container():
                         st.subheader("Summary")
-                        url = selected_row["Link"][0]
+                        url = selected_row["Full Link"][0]
                         title = selected_row["Title"][0]
 
                         # Placeholder for loader
