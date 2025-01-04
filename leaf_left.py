@@ -1658,6 +1658,8 @@ def main_display(user_type, user_email):
     # Append rows with missing values back to the processed DataFrame
     missing_rows = df[df[["Country", "City"]].isnull().any(axis=1)]
     final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
+    final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
+    final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
 
     data = preprocess_data(final_df)
 
