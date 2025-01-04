@@ -216,12 +216,12 @@ def create_folium_map(filtered_data, world, selected_categories=None):
         control=True,
         show=True,
         no_wrap=True,
-        min_zoom=3,
+        min_zoom=1,
         max_zoom=18,
         detect_retina=True,
         opacity=1.0,
         subdomains=["mt0", "mt1", "mt2", "mt3"],
-        bounds=[[-90, -180], [90, 180]],
+        # bounds=[[-90, -180], [90, 180]],
     ).add_to(m)
 
     folium.GeoJson(
