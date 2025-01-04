@@ -1636,9 +1636,9 @@ def main_display(user_type, user_email):
         cookies["logged_in"] = "False"
         cookies["page"] = "Login"
         st.rerun()
-    df = load_data()
+    data = load_data()
     world = load_world()
-    split_rows = df.dropna(subset=["Country", "City"])
+    split_rows = data.dropna(subset=["Country", "City"])
     processed_split = (
         split_rows.assign(
             country_city=split_rows.apply(
@@ -1656,11 +1656,11 @@ def main_display(user_type, user_email):
     )
 
     # Append rows with missing values back to the processed DataFrame
-    missing_rows = df[df[["Country", "City"]].isnull().any(axis=1)]
+    missing_rows = data[data[["Country", "City"]].isnull().any(axis=1)]
     final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
     final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
     final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
-
+    final_df.to_excel("News GIS.xlsx", index=False)
     data = preprocess_data(final_df)
 
     search_term = st.text_input("Search incidents", "")
