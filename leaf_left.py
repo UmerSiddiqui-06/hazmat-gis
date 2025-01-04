@@ -90,7 +90,7 @@ def preprocess_data(data):
                 for match in matches:
                     coords = geocode(match, row["Country"])
                     if coords:
-                        row["City"] = match
+                        # row["City"] = match
                         break
         return pd.Series({"Coordinates": coords, "City": row["City"]})
 
@@ -216,7 +216,7 @@ def create_folium_map(filtered_data, world, selected_categories=None):
         control=True,
         show=True,
         no_wrap=True,
-        min_zoom=1,
+        min_zoom=1.5,
         max_zoom=18,
         detect_retina=True,
         opacity=1.0,
