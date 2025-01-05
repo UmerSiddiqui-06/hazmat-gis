@@ -1731,8 +1731,11 @@ def main_display(user_type, user_email):
         m = create_folium_map(filtered_data, world, selected_categories)
 
         folium_static(m, width=900, height=500)
-
-        category_counts = filtered_data["Category"].value_counts()
+        df = filtered_data.copy()
+        df['Category'] = df['Category'].str.split(',')
+        df_exploded = df.explode('Category', ignore_index=True)
+        df_exploded['Category'] = df_exploded['Category'].str.strip()
+        category_counts = df_exploded["Category"].value_counts()
         color_map = {
             "Explosive": "black",
             "Biological": "green",
