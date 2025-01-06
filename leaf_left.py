@@ -82,16 +82,19 @@ def geocode(city, country):
 @st.cache_data
 def preprocess_data(data):
     def geocode_and_correct(row):
-        coords = geocode(row["City"], row["Country"])
+        if row["City"] != "Unknown" and row["Country"] != "Unknown":
+            coords = geocode(row["City"], row["Country"])
 
-        if coords is None:
-            matches = fuzzy_match_city(row["City"])
-            if matches:
-                for match in matches:
-                    coords = geocode(match, row["Country"])
-                    if coords:
-                        # row["City"] = match
-                        break
+            if coords is None:
+                matches = fuzzy_match_city(row["City"])
+                if matches:
+                    for match in matches:
+                        coords = geocode(match, row["Country"])
+                        if coords:
+                            # row["City"] = match
+                            break
+        else:
+            coords = row["Coordinates"]
         return pd.Series({"Coordinates": coords, "City": row["City"]})
 
     result = data.apply(geocode_and_correct, axis=1)
@@ -207,6 +210,7 @@ from folium.plugins import MarkerCluster
 
 def create_folium_map(filtered_data, world, selected_categories=None):
     m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
+    temp_df = filtered_data.copy()
 
     folium.TileLayer(
         tiles="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
@@ -248,7 +252,8 @@ def create_folium_map(filtered_data, world, selected_categories=None):
     ).add_to(m)
 
     for idx, row in filtered_data.iterrows():
-        if row["Coordinates"] and None not in row["Coordinates"]:
+        if pd.notna(row["Coordinates"]):
+            print(row["Coordinates"])
             if selected_categories is None or row["Category"] in selected_categories:
                 icon = folium.Icon(
                     icon=get_marker_icon(row["Category"]),
@@ -1462,6 +1467,9 @@ def render_aggrid(df_display, user_type, user_email):
     gb.configure_column("Injuries", minWidth=50)
     gb.configure_column("Full Link", minWidth=100)
     gb.configure_column("Severity", minWidth=100)
+    if user_type=="admin":
+        gb.configure_column("Coordinates", minWidth=200)
+
     gb.configure_selection("single", use_checkbox=True)
     if user_type == "admin":
         gb.configure_default_column(editable=True)
@@ -1660,6 +1668,8 @@ def main_display(user_type, user_email):
     final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
     final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
     final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
+    final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
+    final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
     final_df.to_excel("News GIS.xlsx", index=False)
     data = preprocess_data(final_df)
 
@@ -1729,7 +1739,7 @@ def main_display(user_type, user_email):
         
         selected_categories = st.session_state.get("selected_categories", None)
         m = create_folium_map(filtered_data, world, selected_categories)
-
+        
         folium_static(m, width=900, height=500)
         df = filtered_data.copy()
         df['Category'] = df['Category'].str.split(',')
@@ -1868,18 +1878,33 @@ def main_display(user_type, user_email):
 
     with tab3:
         st.subheader("Filtered Data")
-        display_columns = [
-            "Category",
-            "Title",
-            "Country",
-            "City",
-            "Date",
-            "Casuality",
-            "Injuries",
-            "Impact",
-            "Severity",
-            "Full Link",
-        ]
+        if user_type == "admin":
+            display_columns = [
+                "Category",
+                "Title",
+                "Country",
+                "City",
+                "Date",
+                "Casuality",
+                "Injuries",
+                "Impact",
+                "Severity",
+                "Full Link",
+                "Coordinates"
+            ]
+        else:
+            display_columns = [
+                "Category",
+                "Title",
+                "Country",
+                "City",
+                "Date",
+                "Casuality",
+                "Injuries",
+                "Impact",
+                "Severity",
+                "Full Link"
+            ]
         df_display = filtered_data[display_columns].copy()
         df_display["Date"] = df_display["Date"].dt.strftime("%d-%m-%Y")
 
