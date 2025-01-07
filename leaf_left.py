@@ -26,7 +26,7 @@ import string
 import json
 from streamlit_js_eval import streamlit_js_eval
 from streamlit_modal import Modal
-
+import os
 
 st.set_page_config(layout="wide", page_title="HazMat GIS",page_icon="logo1.png")
 
@@ -44,7 +44,21 @@ if not cookies.ready():
 conn = utitlity.sqlpy()
 
 def load_data():
-    data = pd.read_excel("News GIS.xlsx", engine="openpyxl")
+    dataframes = []
+    
+    # Iterate over all files in the folder
+    for file_name in os.listdir("data"):
+        # Build the full file path
+        file_path = os.path.join("data", file_name)
+        
+        # Check if the file is an Excel file
+        if file_name.endswith(('.xlsx', '.xls')):
+            # Read the Excel file into a DataFrame and append to the list
+            df = pd.read_excel(file_path)
+            dataframes.append(df)
+    
+    # Concatenate all DataFrames into a single DataFrame
+    data = pd.concat(dataframes, ignore_index=True)
     data["Date"] = pd.to_datetime(data["Date"])
     return data
 
@@ -253,7 +267,6 @@ def create_folium_map(filtered_data, world, selected_categories=None):
 
     for idx, row in filtered_data.iterrows():
         if pd.notna(row["Coordinates"]):
-            print(row["Coordinates"])
             if selected_categories is None or row["Category"] in selected_categories:
                 icon = folium.Icon(
                     icon=get_marker_icon(row["Category"]),
@@ -684,9 +697,7 @@ def display_col1():
 
 
 def admin_panel():
-    col1, col2, col3, col4 = st.tabs(
-        ["Manage Access", "Login History", "Download History", "GPT Stats"]
-    )
+    
     with st.sidebar:
         # Go Back Button
         if st.button("Go Back"):
@@ -728,99 +739,11 @@ def admin_panel():
             del st.session_state.gpt_limit_state
             st.rerun()
 
-        st.sidebar.header("Upload Data")
-        new_data_file = st.sidebar.file_uploader(
-            "Upload an Excel File", type="xlsx", label_visibility="collapsed"
-        )
-
-        if new_data_file:
-            # Concatenate Data Button
-            if st.sidebar.button("Concatenate Data"):
-                try:
-                    
-                    old_data = pd.read_excel("News GIS.xlsx")
-                    new_data = pd.read_excel(new_data_file)
-                    columns_to_strip = ["Type", "Category", "Impact", "Severity"]
-                    new_data[columns_to_strip] = new_data[columns_to_strip].apply(lambda col: col.str.strip())
-                    new_data['Category'] = new_data['Category'].str.title()
-                    new_data['Impact'] = new_data['Impact'].str.title()
-                    columns_to_clean = ["Type", "Category", "Impact", "Severity"]
-                    for column in columns_to_clean:
-                        if column in new_data.columns:
-                            new_data[column] = new_data[column].str.strip()
-                     
-                    valid_type = {"Incident", "Activity"}
-                    valid_category = {"Explosive", "Biological", "Radiological", "Chemical", "Nuclear"}
-                    valid_impact = {"Infrastructure", "Human", "Environmental", "Economic", "Nuclear", "Animal"}
-                    valid_severity = {"Low", "Medium"}
-
-                    # Function to check if any value in a comma-separated list is valid
-                    def check_validity(value, valid_set):
-                        # Split the value by commas, strip whitespace, and check if any part is in the valid set
-                        values = {item.strip() for item in value.split(',')}
-                        return values.issubset(valid_set)
-
-                    # Apply the validity checks
-                    new_data["Type_Valid"] = new_data["Type"].apply(lambda x: check_validity(x, valid_type))
-                    new_data["Category_Valid"] = new_data["Category"].apply(lambda x: check_validity(x, valid_category))
-                    new_data["Impact_Valid"] = new_data["Impact"].apply(lambda x: check_validity(x, valid_impact))
-                    new_data["Severity_Valid"] = new_data["Severity"].apply(lambda x: check_validity(x, valid_severity))
-
-                    conditions = (
-                        new_data["Type_Valid"]
-                        & new_data["Category_Valid"]
-                        & new_data["Impact_Valid"]
-                        & new_data["Severity_Valid"]
-                    )
-
-                    rejected_rows = new_data[~conditions].copy()
-                    rejected_rows["Failure_Reason"] = rejected_rows.apply(
-                        lambda row: ", ".join(
-                            [
-                                reason
-                                for reason, valid in [
-                                    ("Invalid Type", not row["Type_Valid"]),
-                                    ("Invalid Category", not row["Category_Valid"]),
-                                    ("Invalid Impact", not row["Impact_Valid"]),
-                                    ("Invalid Severity", not row["Severity_Valid"]),
-                                ]
-                                if valid
-                            ]
-                        ),
-                        axis=1,
-                    )
-
-                    new_data = new_data[conditions].drop(
-                        columns=["Type_Valid", "Category_Valid", "Impact_Valid", "Severity_Valid"]
-                    )
-
-                    if (
-                        len(new_data.columns) == len(old_data.columns)
-                        and (new_data.dtypes.values == old_data.dtypes.values).all()
-                    ):
-                        # Concatenate the data
-                        result = pd.concat([old_data, new_data], axis=0)
-                        result.to_excel("News GIS.xlsx", index=False)
-                        st.sidebar.success("Data concatenated successfully")
-
-                        # Provide download button for rejected rows
-                        if not rejected_rows.empty:
-                            st.sidebar.download_button(
-                                label="Download Rejected Rows",
-                                data=rejected_rows.to_csv(index=False),
-                                file_name="Rejected_Rows.csv",
-                                mime="text/csv",
-                            )
-                        
-                        if st.button("Ignore"):
-                            st.rerun()
-                    else:
-                        st.sidebar.warning("Invalid Data, Try again with a different file.")
-                except Exception as e:
-                    st.error(f"Error occurred: {str(e)}")
-
         # Add separator between sections for better readability
         st.sidebar.markdown("---")
+    col1, col2, col3, col4, col5 = st.tabs(
+        ["Manage Access", "Login History", "Download History", "GPT Stats","Upload Data"]
+    )
 
     with col2:
         users = conn.get_users()
@@ -1238,7 +1161,6 @@ def admin_panel():
                 st.warning("Not Enough Data")
     with col1:
         display_col1()
-
     with col4:
         history = (
             conn.get_gpt_history()
@@ -1384,7 +1306,113 @@ def admin_panel():
         if set(final_selected_emails) != set(st.session_state.selected_emails_usage):
             st.session_state.selected_emails_usage = final_selected_emails
             st.rerun()
+    with col5:
+        st.header("Upload Data")
+        new_data_file = st.file_uploader(
+            "Upload an Excel File", type="xlsx", label_visibility="collapsed"
+        )
 
+        if new_data_file:
+            # Concatenate Data Button
+            filename = st.text_input("Filename:",placeholder="Enter file name without extension")
+            if st.button("Add File"):
+                if filename:
+                    try:
+                        new_data = pd.read_excel(new_data_file)
+                        columns_to_strip = ["Type", "Category", "Impact", "Severity"]
+                        new_data[columns_to_strip] = new_data[columns_to_strip].apply(lambda col: col.str.strip())
+                        new_data['Category'] = new_data['Category'].str.title()
+                        new_data['Impact'] = new_data['Impact'].str.title()
+                        columns_to_clean = ["Type", "Category", "Impact", "Severity"]
+                        for column in columns_to_clean:
+                            if column in new_data.columns:
+                                new_data[column] = new_data[column].str.strip()
+                        
+                        valid_type = {"Incident", "Activity"}
+                        valid_category = {"Explosive", "Biological", "Radiological", "Chemical", "Nuclear"}
+                        valid_impact = {"Infrastructure", "Human", "Environmental", "Economic", "Nuclear", "Animal"}
+                        valid_severity = {"Low", "Medium"}
+
+                        # Function to check if any value in a comma-separated list is valid
+                        def check_validity(value, valid_set):
+                            # Split the value by commas, strip whitespace, and check if any part is in the valid set
+                            values = {item.strip() for item in value.split(',')}
+                            return values.issubset(valid_set)
+
+                        # Apply the validity checks
+                        new_data["Type_Valid"] = new_data["Type"].apply(lambda x: check_validity(x, valid_type))
+                        new_data["Category_Valid"] = new_data["Category"].apply(lambda x: check_validity(x, valid_category))
+                        new_data["Impact_Valid"] = new_data["Impact"].apply(lambda x: check_validity(x, valid_impact))
+                        new_data["Severity_Valid"] = new_data["Severity"].apply(lambda x: check_validity(x, valid_severity))
+
+                        conditions = (
+                            new_data["Type_Valid"]
+                            & new_data["Category_Valid"]
+                            & new_data["Impact_Valid"]
+                            & new_data["Severity_Valid"]
+                        )
+
+                        rejected_rows = new_data[~conditions].copy()
+                        rejected_rows["Failure_Reason"] = rejected_rows.apply(
+                            lambda row: ", ".join(
+                                [
+                                    reason
+                                    for reason, valid in [
+                                        ("Invalid Type", not row["Type_Valid"]),
+                                        ("Invalid Category", not row["Category_Valid"]),
+                                        ("Invalid Impact", not row["Impact_Valid"]),
+                                        ("Invalid Severity", not row["Severity_Valid"]),
+                                    ]
+                                    if valid
+                                ]
+                            ),
+                            axis=1,
+                        )
+
+                        new_data = new_data[conditions].drop(
+                            columns=["Type_Valid", "Category_Valid", "Impact_Valid", "Severity_Valid"]
+                        )
+                        
+                        filename = filename + ".xlsx"
+                        new_data.to_excel(f"data/{filename}", index=False)
+                        st.success("Data concatenated successfully")
+
+                        # Provide download button for rejected rows
+                        dcol,icol = st.columns(2)
+                        with dcol:
+                            if not rejected_rows.empty:
+                                st.download_button(
+                                    label="Download Rejected Rows",
+                                    data=rejected_rows.to_csv(index=False),
+                                    file_name="Rejected_Rows.csv",
+                                    mime="text/csv",
+                                )
+                        with icol:
+                            if not rejected_rows.empty and st.button("Ignore"):
+                                st.rerun()
+                            
+                    except Exception as e:
+                        st.error(f"Error occurred: {str(e)}")
+                else:
+                    st.warning("Please enter filename")
+
+        excel_files = {}
+        for file_name in os.listdir("data"):
+            if file_name.endswith(('.xlsx', '.xls')):
+                file_path = os.path.join("data", file_name)
+                excel_files[file_name] = pd.read_excel(file_path)
+        
+        if not excel_files:
+            st.warning("No Excel files found in the specified folder.")
+            return
+        
+        # Streamlit dropdown to select a file
+        selected_file = st.selectbox("Select an Excel file to view:", list(excel_files.keys()))
+        
+        # Display the selected file's DataFrame
+        if selected_file:
+            st.subheader(f"Contents of {selected_file}")
+            render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
 
 def increase_gpt_limit(user_id, number_key):
     if st.session_state[number_key] != st.session_state.gpt_limit_state[number_key]:
@@ -1455,7 +1483,8 @@ def summarize():
     # cookies.save()
 
 
-def render_aggrid(df_display, user_type, user_email):
+def render_aggrid(df_display, user_type,filename="temp"):
+    full_data = df_display.copy()
     gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
     gb.configure_column("Category", minWidth=100)
     gb.configure_column("Title", minWidth=400)
@@ -1504,14 +1533,13 @@ def render_aggrid(df_display, user_type, user_email):
         theme="streamlit",
         fit_columns_on_grid_load=True,
     )
-    if user_type == "admin":
+    if user_type == "admin" and filename!="temp":
         if grid_response['data'] is not None:
             updated_df = pd.DataFrame(grid_response['data'])
             original_data = df_display.reset_index(drop=True)
             updated_data = updated_df.reset_index(drop=True)
             if not updated_data.equals(original_data): 
                 if st.button("Save Changes"):
-                    full_data = load_data()
                     
                     # Update only the modified rows and cells
                     for index, row in updated_data.iterrows():
@@ -1523,7 +1551,7 @@ def render_aggrid(df_display, user_type, user_email):
                                     full_data.loc[full_index, col] = row[col]
                     
                     # Save back the updated Excel file
-                    full_data.to_excel("News GIS.xlsx", index=False)
+                    full_data.to_excel(f"data/{filename}", index=False)
                     st.success("Data saved to Excel successfully!")
                     df_display = updated_df
                     time.sleep(1)
@@ -1670,7 +1698,7 @@ def main_display(user_type, user_email):
     final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
     final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
     final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
-    final_df.to_excel("News GIS.xlsx", index=False)
+    # final_df.to_excel("data/First File.xlsx", index=False)
     data = preprocess_data(final_df)
 
     search_term = st.text_input("Search incidents", "")
@@ -1928,7 +1956,7 @@ def main_display(user_type, user_email):
         )
 
         with st.container():
-            selected_row = render_aggrid(df_display, user_type, user_email)
+            selected_row = render_aggrid(df_display, user_type)
         chatgpt = conn.get_gpt_status()
         if chatgpt and (
             user_type == "admin"
