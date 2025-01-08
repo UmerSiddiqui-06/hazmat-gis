@@ -533,6 +533,7 @@ def login_page():
                             st.session_state.user_type = "user"
                             st.session_state.user_email = email
                             st.session_state.page = "main_display"
+
                             if conn.is_temporary_password(email):
                                 show_toast(
                                     "Your password is temporary. Please change it immediately!"
@@ -1652,6 +1653,8 @@ def show_toast(message, duration=2):
 
 def main_display(user_type, user_email):
     # st.sidebar.image('logo.png',width=120)
+    st.write(f"User type from cookies: {cookies.get("user_type")}")
+    st.write(f"User type from session_state: {user_type}")
     if user_type == "admin":
         if st.sidebar.button("Admin Panel", use_container_width=True):
             st.session_state.page = "admin_panel"
@@ -1671,6 +1674,7 @@ def main_display(user_type, user_email):
         cookies["user_email"] = "False"
         cookies["logged_in"] = "False"
         cookies["page"] = "Login"
+        cookies.save()
         st.rerun()
     data = load_data()
     world = load_world()
