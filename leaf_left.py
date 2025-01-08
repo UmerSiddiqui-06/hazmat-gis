@@ -1653,7 +1653,7 @@ def show_toast(message, duration=2):
 
 def main_display(user_type, user_email):
     # st.sidebar.image('logo.png',width=120)
-    st.write(f'User type from cookies: {cookies.get("user_type")}')
+    st.write(f'User type from cookies: {cookies.get("user_type",None)}')
     st.write(f'User type from session_state: {user_type}')
     if user_type == "admin":
         if st.sidebar.button("Admin Panel", use_container_width=True):
