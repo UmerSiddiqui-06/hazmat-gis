@@ -1409,10 +1409,54 @@ def admin_panel():
         
         # Streamlit dropdown to select a file
         selected_file = st.selectbox("Select an Excel file to view:", list(excel_files.keys()))
+        if "confirm_delete" not in st.session_state:
+            st.session_state.confirm_delete = False
+            st.session_state.file_to_delete = None
         
         # Display the selected file's DataFrame
         if selected_file:
+            # Create a header for the file
             st.subheader(f"Contents of {selected_file}")
+
+            # Use a container to tightly group the buttons
+            with st.container():
+                col1, col2 = st.columns([1, 1])  # Equal-sized columns for buttons
+                with col1:
+                    from io import BytesIO
+                    excel_buffer = BytesIO()
+                    excel_files[selected_file].to_excel(excel_buffer, index=False, engine='openpyxl')
+                    excel_data = excel_buffer.getvalue()
+                    st.download_button(
+                    label="⬇️ Download",
+                    data=excel_data,
+                    file_name=selected_file,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                with col2:
+                    if st.button("🗑️ Delete"):
+                        st.session_state.confirm_delete = True
+                        st.session_state.file_to_delete = "data/" + selected_file
+            
+            # Confirmation Modal
+            if st.session_state.confirm_delete:
+                st.warning(f"Are you sure you want to delete {selected_file}?")
+                confirm_col1, confirm_col2 = st.columns([1, 1])
+
+                with confirm_col1:
+                    if st.button("Yes, Delete"):
+                        if os.path.exists(st.session_state.file_to_delete):
+                            os.remove(st.session_state.file_to_delete)
+                            st.success(f"File {selected_file} has been deleted.")
+                            st.session_state.confirm_delete = False
+                            st.session_state.file_to_delete = None
+                            st.rerun()
+
+                with confirm_col2:
+                    if st.button("Cancel"):
+                        st.session_state.confirm_delete = False
+                        st.session_state.file_to_delete = None
+
+
             render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
 
 def increase_gpt_limit(user_id, number_key):
@@ -1653,8 +1697,6 @@ def show_toast(message, duration=2):
 
 def main_display(user_type, user_email):
     # st.sidebar.image('logo.png',width=120)
-    st.write(f'User type from cookies: {cookies.get("user_type",None)}')
-    st.write(f'User type from session_state: {user_type}')
     if user_type == "admin":
         if st.sidebar.button("Admin Panel", use_container_width=True):
             st.session_state.page = "admin_panel"
