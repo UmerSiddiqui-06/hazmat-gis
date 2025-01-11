@@ -1232,6 +1232,12 @@ def admin_panel():
                         </a>
                     ''', unsafe_allow_html=True)
                     response = conn.get_gpt_response(row_data["Link"])
+                    st.download_button(
+                        label="Download Response",
+                        data=response,  # File content as a string
+                        file_name="response.txt",  # File name with .txt extension
+                        mime="text/plain"  # MIME type for plain text files
+                    )
                     st.write("Summary Response:", response)  
 
         try:
@@ -2045,6 +2051,12 @@ def main_display(user_type, user_email):
 
                         # Clear loader and display response
                         loader_placeholder.empty()
+                        st.download_button(
+                            label="Download Response",
+                            data=response,  # File content as a string
+                            file_name="response.txt",  # File name with .txt extension
+                            mime="text/plain"  # MIME type for plain text files
+                        )
                         st.write(response)
 
                     cookies["summarize"] = "False"
