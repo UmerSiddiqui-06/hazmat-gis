@@ -501,7 +501,7 @@ def login_page():
         with st.container(border=True):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            columns = st.columns((4, 3, 3))
+            columns = st.columns((4, 5, 2))
             with columns[0]:
                 if st.button("Login"):
                     print(st.session_state.logged_in)
@@ -558,7 +558,7 @@ def login_page():
                         st.session_state.page = "Forget_Password"
                         st.rerun()
 
-            col1, col2 = st.columns((3.2, 6.8))
+            col1, col2 = st.columns((2, 8))
             col1.write("Don't have an account?")
             if col2.button("Register"):
                 st.session_state.page = "Register"
@@ -575,7 +575,9 @@ def get_download_history():
 
 def display_col1():
     users = conn.get_users()
+    
     if users:
+        # Create DataFrame from users
         df = pd.DataFrame(
             users,
             columns=[
@@ -590,6 +592,7 @@ def display_col1():
                 "gptlimittype",
             ],
         )
+
         emails = list(df["Email"])
         selected_user = st_tags(
             label="Search User",
@@ -598,16 +601,19 @@ def display_col1():
             suggestions=emails,
             key="3",
         )
+
         if not selected_user:
             selected_user = emails[:]
         elif len(selected_user) > 0:
             df = df[df["Email"].isin(selected_user)]
+
         gpt_status = df["ChatGpt"]
         login_status = df["Status"]
         login_status = [
             0 if row in ["Pending", "Rejected"] else 1 for row in login_status
         ]
         gptlimit = df["ChatGpt_limit"]
+
         df = df.drop(
             [
                 "Password",
@@ -621,50 +627,48 @@ def display_col1():
         )
         df.columns = ["ID", "Email", "ChatGpt_limit"]
 
-        header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns(
-            (1, 3, 2, 2, 2)
-        )
-        with header_col1:
-            st.markdown("### ID")
-        with header_col2:
-            st.markdown("### Email")
-        with header_col3:
-            st.markdown("### Access")
-        with header_col4:
-            st.markdown("### GPT Access")
-        with header_col5:
-            st.markdown("### GPT Limit")
-
-        if "toggle_states_gpt" not in st.session_state:
+        # Check for changes in the number of users and reinitialize session states
+        if "prev_user_count" not in st.session_state or st.session_state.prev_user_count != len(users):
+            st.session_state.prev_user_count = len(users)  # Update user count
             st.session_state.toggle_states_gpt = {
                 f"t{i}": gpt_status.iloc[i] for i in range(len(users))
             }
-
-        if "toggle_states_status" not in st.session_state:
             st.session_state.toggle_states_status = {
                 f"t1{i}": login_status[i] for i in range(len(users))
             }
-
-        if "gpt_limit_state" not in st.session_state:
             st.session_state.gpt_limit_state = {
                 f"number{i}": gptlimit.iloc[i] for i in range(len(users))
             }
 
-        # st.session_state.gpt_limit_state = {f'number{i}': gptlimit.iloc[i] for i in range(len(selected_user))}
+        # Display header
+        header_col1, header_col2, header_col3, header_col4, header_col5,header_col6 = st.columns(
+            (1, 3, 2, 2, 2,1)
+        )
+        with header_col1:
+            st.markdown("#### ID")
+        with header_col2:
+            st.markdown("#### Email")
+        with header_col3:
+            st.markdown("#### Access")
+        with header_col4:
+            st.markdown("#### GPT Access")
+        with header_col5:
+            st.markdown("#### GPT Limit")
 
+        # Iterate over the DataFrame rows
         for i, row in df.iterrows():
-            col31, col32, col33, col34, col35 = st.columns((1, 3, 2, 2, 2))
+            col31, col32, col33, col34, col35, col36 = st.columns((1, 3, 2, 2, 2, 1))
             id = row["ID"]
             with col31:
                 st.write("")
-                st.write(row["ID"])
+                st.write(str(row["ID"]))
             with col32:
                 st.write("")
                 st.write(row["Email"])
             with col34:
                 st.write("")
                 toggle_key_1 = f"t{i}"
-                new_value = st.toggle(
+                st.toggle(
                     "Off / On",
                     value=st.session_state.toggle_states_gpt[toggle_key_1],
                     key=toggle_key_1,
@@ -674,7 +678,7 @@ def display_col1():
             with col33:
                 st.write("")
                 toggle_key = f"t1{i}"
-                new_value = st.toggle(
+                st.toggle(
                     "Revoke / Grant",
                     value=st.session_state.toggle_states_status[toggle_key],
                     key=toggle_key,
@@ -683,10 +687,9 @@ def display_col1():
                 )
             with col35:
                 number_key = f"number{i}"
-                st.markdown("")
                 st.number_input(
                     " ",
-                    key=f"number{i}",
+                    key=number_key,
                     label_visibility="collapsed",
                     value=st.session_state.gpt_limit_state[number_key],
                     step=1,
@@ -695,7 +698,41 @@ def display_col1():
                     args=(id, number_key),
                     min_value=0,
                 )
+            with col36:
+                if st.button("🗑️", key=f"delete_{i}"):
+                    st.session_state.show_modal = True
+                    st.session_state.delete_email = row["Email"]
+                    
+            if st.session_state.get("show_modal", False) and st.session_state.get("delete_email", False)==row["Email"]:            
+                show_delete_confirmation_modal(st.session_state.delete_email)
 
+
+def show_delete_confirmation_modal(email):
+    """
+    Displays a confirmation message before deleting a user.
+
+    Parameters:
+        email (str): The email of the user to delete.
+    """
+    if st.session_state.get("show_modal", False):
+        # Display the modal content
+        st.warning(f"Are you sure you want to delete the user with email: {email}?")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.button("Yes, Delete",on_click=delete_user,args=(email,))
+        with col2:
+            st.button("Cancel",on_click=cancel_delete)      
+    else:
+        # Trigger the modal
+        st.session_state.show_modal = True
+def delete_user(email):
+    conn.delete_user(email)
+    st.session_state.show_modal = False
+    # st.rerun()
+
+def cancel_delete():
+    st.session_state.show_modal = False
+    # st.rerun()
 
 def admin_panel():
     
@@ -1513,8 +1550,11 @@ def add_download_history(filters):
 
 
 def chatgpt_explain(prompt):
+    gpt_api_key = os.getenv("gpt_api_key")
+    if not gpt_api_key:
+        raise ValueError("GPT API key is not set in the environment")
     client = OpenAI(
-        api_key="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"
+        api_key=gpt_api_key
     )
     try:
         completion = client.chat.completions.create(
@@ -1751,7 +1791,10 @@ def main_display(user_type, user_email):
     final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
     final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
     # final_df.to_excel("data/First File.xlsx", index=False)
-    data = preprocess_data(final_df)
+    final_df['Category'] = final_df['Category'].str.split(',')
+    df_exploded = final_df.explode('Category', ignore_index=True)
+    df_exploded['Category'] = df_exploded['Category'].str.strip()
+    data = preprocess_data(df_exploded)
 
     search_term = st.text_input("Search incidents", "")
 

@@ -10,14 +10,14 @@ class sqlpy:
 
         # Create the users table
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS users (
-                user_id VARCHAR(255),
+                user_id INTEGER,
                 email VARCHAR(255),  
                 password VARCHAR(255),
                 chatgpt BOOL,
                 status VARCHAR(255),
                 ChatGpt_used INTEGER,
                 ChatGpt_limit INTEGER,
-                remaining_time DATETIME,
+                last_reset_date DATETIME,
                 chatgptlimittype VARCHAR(255)
                 );""")
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS temporary_password(
@@ -81,11 +81,11 @@ class sqlpy:
         if not data:
             password = bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt())
             
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u1','temp',password,0,'Accepted',0,datetime.now(),5,"defualt"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u2','temp1',password,1,'Pending',0,datetime.now(),5,"default"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u3','temp2',password,1,'Rejected',0,datetime.now(),5,"default"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u4','temp3',password,1,'Accepted',4,datetime.now(),5,"default"))
-            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('u5','temp4',password,1,'Accepted',5,datetime.now(),5,"default"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('1','temp',password,0,'Accepted',0,datetime.now(),5,"defualt"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('2','temp1',password,1,'Pending',0,datetime.now(),5,"default"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('3','temp2',password,1,'Rejected',0,datetime.now(),5,"default"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('4','temp3',password,1,'Accepted',4,datetime.now(),5,"default"))
+            self.cursor.execute("INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,last_reset_date,ChatGpt_limit,chatgptlimittype) VALUES(?,?,?,?,?,?,?,?,?)",('5','temp4',password,1,'Accepted',5,datetime.now(),5,"default"))
 
         # Insert admin record
         self.cursor.execute('SELECT * FROM admin')
@@ -136,18 +136,36 @@ class sqlpy:
         self.cursor.execute("INSERT INTO gpt_responses (Link,Response) VALUES (?,?)",(link,response))
         self.conn.commit()
         
-    def register_user(self,email,password):
+    def register_user(self, email, password):
+        """
+        Registers a new user with the given email and password.
+
+        Parameters:
+            email (str): The email of the user.
+            password (str): The plain text password of the user.
+        """
         password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        self.cursor.execute("SELECT MAX(CAST(SUBSTR(user_id, 2) AS INTEGER)) FROM users")
+
+        # Get the maximum current ID
+        self.cursor.execute("SELECT MAX(id) FROM users")
         data = self.cursor.fetchone()
+
         if data[0] is None:
-            id = 'u1'
+            new_id = 1  # Start with ID 1 if the table is empty
         else:
-            id = 'u' + str(data[0] + 1)
+            new_id = data[0] + 1  # Increment the maximum ID by 1
+
         global_gpt = self.get_gpt_limit()
         last_reset_date = datetime.now()
-        self.cursor.execute('INSERT INTO users (user_id,email,password,chatgpt,status,ChatGpt_used,ChatGpt_limit,last_reset_date,chatgptlimittype) VALUES (?,?,?,?,?,?,?,?,?)',(id,email,password,0,'Pending',0,global_gpt,last_reset_date,"default"))
+
+        # Insert the new user into the users table
+        self.cursor.execute(
+            'INSERT INTO users (id, email, password, chatgpt, status, ChatGpt_used, ChatGpt_limit, last_reset_date, chatgptlimittype) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (new_id, email, password, 0, 'Pending', 0, global_gpt, last_reset_date, "default")
+        )
+
         self.conn.commit()
+
 
     def check_login_admin(self, email, input_password):
         # Fetch the stored hashed password for the given admin email
@@ -352,7 +370,17 @@ class sqlpy:
 
         self.conn.commit()
 
-        
+    def delete_user(self, email):
+        try:
+            print("Deleting user: ",email)
+            # Delete the user with the specified email
+            self.cursor.execute("DELETE FROM users WHERE email = ?", (email,))
+            self.conn.commit()
+
+        except Exception as e:
+            self.conn.rollback()
+            print(f"An error occurred: {e}")
+
         
 
         
