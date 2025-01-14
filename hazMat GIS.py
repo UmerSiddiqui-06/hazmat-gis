@@ -28,7 +28,7 @@ from streamlit_js_eval import streamlit_js_eval
 from streamlit_modal import Modal
 import os
 
-st.set_page_config(layout="wide", page_title="HazMat GIS",page_icon="logo1.png")
+st.set_page_config(page_title="HazMat GIS",page_icon="logo1.png")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
@@ -446,7 +446,6 @@ def register_page():
                 st.session_state.page = "Login"
                 st.rerun()
 
-
 def centralize_content():
     st.markdown(
         """
@@ -457,113 +456,92 @@ def centralize_content():
             justify-content: center;
             height: 100vh;
         }
-        .main {
-            width: 100%;
-            max-width: 800px;
-            margin: auto;
-            text-align: center;
-        }
         </style>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
-
-
+    
 def login_page():
-
-    # centralize_content()
-    c1,c2,c3 = st.columns(3)
+    centralize_content()
+    
+    # Logo and title
+    c1, c2, c3 = st.columns(3)
     with c2:
-        st.image("logo1.png", width=400)
-    c1,c2,c3 = st.columns((4,3,3))
+        st.image("logo1.png", width=300)  # Add logo
+    c1, c2, c3 = st.columns((3.8,7,2))
     with c2:
-        st.subheader("HazMat GIS - Login")
-    # st.markdown(
-    #     """
-    #     <style>
-    #     /* Set the total width of the page */
-    #     .main {
-    #         max-width: 100% !important; /* Set to 100% to take up the full screen width */
-    #         width: 100% !important;
-    #     }
-    #     /* Set custom max-width for content */
-    #     .block-container {
-    #         max-width: 1000px; /* You can modify this width */
-    #         margin: 0 auto;
-    #     }
-    #     </style>
-    #     """,
-    #     unsafe_allow_html=True,
-    # )
-    # # st.markdown("<h2>HazMat GIS - Login</h2>", unsafe_allow_html=True)
-    cols = st.columns((1, 8, 1))
-    with cols[1]:
-        with st.container(border=True):
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            columns = st.columns((4, 5, 2))
-            with columns[0]:
-                if st.button("Login"):
-                    print(st.session_state.logged_in)
-                    if not email:
-                        st.warning("Please enter email")
-                    elif not password:
-                        st.warning("Please enter password")
-                    else:
-                        is_admin = conn.check_login_admin(email, password)
-                        is_user = conn.check_login_user(email, password)
-                        if is_admin:
-                            st.session_state.logged_in = True
-                            cookies["logged_in"] = "True"
-                            cookies["user_type"] = "admin"
-                            cookies["page"] = "admin_panel"
-                            cookies["user_email"] = email
-                            st.session_state.page = "admin_panel"
-                            st.session_state.user_email = email
-                            st.session_state.user_type = "admin"
-                            cookies.save()
-                            if conn.is_temporary_password(email):
-                                show_toast("This is a custom toast notification!")
-                            time.sleep(2)
-                            st.rerun()
-                        elif is_user == "Accepted":
-                            conn.add_new_login(email)
-                            st.session_state.user_email = email
-                            st.session_state.logged_in = True
-                            st.session_state.user_type = "user"
-                            st.session_state.user_email = email
-                            st.session_state.page = "main_display"
+        st.header("HazMat GIS - Login")
+    with st.container(border=True):
+        # Login form
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        
+        # Forget Password and Register buttons
+        col1, col2, col3, col4, col5 = st.columns((2,2,2,2,2.3))
+        with col1:
+            login_button = st.button("Login")
 
-                            if conn.is_temporary_password(email):
-                                show_toast(
-                                    "Your password is temporary. Please change it immediately!"
-                                )
-                            time.sleep(3)
-                            # cookies['user_email'] = email
-                            # cookies['logged_in'] =  'True'
-                            # cookies['user_type'] = 'user'
-                            # cookies['user_email'] = email
-                            # cookies.save()
-                            st.rerun()
-                        elif is_user == "Rejected":
-                            st.session_state.page = "Rejected"
-                            st.rerun()
-                        elif is_user == "Pending":
-                            st.session_state.page = "Pending"
-                            st.rerun()
-                        else:
-                            st.error("Wrong Password, Try Again")
-                with columns[2]:
-                    if st.button("Forget Password"):
-                        st.session_state.page = "Forget_Password"
-                        st.rerun()
+        if login_button:
+            print(st.session_state.logged_in)
+            if not email:
+                st.warning("Please enter email")
+            elif not password:
+                st.warning("Please enter password")
+            else:
+                is_admin = conn.check_login_admin(email, password)
+                is_user = conn.check_login_user(email, password)
+                if is_admin:
+                    st.session_state.logged_in = True
+                    cookies["logged_in"] = "True"
+                    cookies["user_type"] = "admin"
+                    cookies["page"] = "admin_panel"
+                    cookies["user_email"] = email
+                    st.session_state.page = "admin_panel"
+                    st.session_state.user_email = email
+                    st.session_state.user_type = "admin"
+                    cookies.save()
+                    if conn.is_temporary_password(email):
+                        show_toast("This is a custom toast notification!")
+                    time.sleep(2)
+                    st.rerun()
+                elif is_user == "Accepted":
+                    conn.add_new_login(email)
+                    st.session_state.user_email = email
+                    st.session_state.logged_in = True
+                    st.session_state.user_type = "user"
+                    st.session_state.user_email = email
+                    st.session_state.page = "main_display"
 
-            col1, col2 = st.columns((2, 8))
-            col1.write("Don't have an account?")
-            if col2.button("Register"):
-                st.session_state.page = "Register"
+                    if conn.is_temporary_password(email):
+                        show_toast(
+                            "Your password is temporary. Please change it immediately!"
+                        )
+                    time.sleep(3)
+                    # cookies['user_email'] = email
+                    # cookies['logged_in'] =  'True'
+                    # cookies['user_type'] = 'user'
+                    # cookies['user_email'] = email
+                    # cookies.save()
+                    st.rerun()
+                elif is_user == "Rejected":
+                    st.session_state.page = "Rejected"
+                    st.rerun()
+                elif is_user == "Pending":
+                    st.session_state.page = "Pending"
+                    st.rerun()
+                else:
+                    st.error("Wrong Password, Try Again")
+        
+            
+        with col5:
+            if st.button("Forget Password"):
+                st.session_state.page = "Forget_Password"
                 st.rerun()
-
+        col1, col2 = st.columns((2.5,7.5))
+        col1.write("Don't have an account?")
+        if col2.button("Register"):
+            st.session_state.page = "Register"
+            st.rerun()
 
 def get_users():
     return conn.get_users()
@@ -2257,3 +2235,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
