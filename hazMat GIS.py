@@ -8,7 +8,7 @@ from geopy.geocoders import Nominatim
 import plotly.graph_objs as go
 import random
 import plotly.express as px
-from fuzzywuzzy import process
+from rapidfuzz import process
 from st_aggrid import AgGrid, GridOptionsBuilder
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 from streamlit_plotly_events import plotly_events
@@ -60,8 +60,41 @@ def load_data():
     # Concatenate all DataFrames into a single DataFrame
     data = pd.concat(dataframes, ignore_index=True)
     data["Date"] = pd.to_datetime(data["Date"])
+    data['Country'] = standardize_country_column(data['Country'])
     return data
 
+def load_country_list(file_path):
+    """Load the country list from a file."""
+    with open(file_path, 'r') as file:
+        countries = [line.strip() for line in file.readlines()]
+    return countries
+
+def standardize_country_column(column):
+    country_list = load_country_list("worldcountries.txt")
+    country_variations = {
+        "UAE": "United Arab Emirates",
+        "United Arab Emirates": "United Arab Emirates",
+        "USA": "United States",
+        "United States": "United States",
+        "United States of America": "United States",
+        "UK": "United Kingdom",
+        "United Kingdom": "United Kingdom",
+        "Russia": "Russia",
+        "Russian Federation": "Russia",
+        "South Korea": "South Korea",
+        "Republic of Korea": "South Korea"
+    }
+    def standardize_name(name):
+        # Check for known variations
+        if name in country_variations:
+            return country_variations[name]
+        # Fuzzy match if not in variations
+        match = process.extractOne(name, country_list)
+        return match[0] if match[1] > 80 else 'Unknown'
+
+
+    # Apply the standardization function
+    return column.apply(standardize_name)
 
 @st.cache_data
 def load_world():
@@ -76,9 +109,9 @@ def load_world_cities():
 
 @st.cache_data
 def fuzzy_match_city(city_name, limit=5, threshold=70):
-    cities = load_world_cities()["city"].unique()
+    cities = load_world_cities()["city"].unique()  # Load unique city names
     matches = process.extract(city_name, cities, limit=limit)
-    return [match for match, score in matches if score >= threshold]
+    return [match for match, score, _ in matches if score >= threshold]
 
 
 @st.cache_data
