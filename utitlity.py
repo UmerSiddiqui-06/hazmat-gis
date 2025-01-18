@@ -147,7 +147,7 @@ class sqlpy:
         password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
         # Get the maximum current ID
-        self.cursor.execute("SELECT MAX(id) FROM users")
+        self.cursor.execute("SELECT MAX(user_id) FROM users")
         data = self.cursor.fetchone()
 
         if data[0] is None:
@@ -160,7 +160,7 @@ class sqlpy:
 
         # Insert the new user into the users table
         self.cursor.execute(
-            'INSERT INTO users (id, email, password, chatgpt, status, ChatGpt_used, ChatGpt_limit, last_reset_date, chatgptlimittype) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO users (user_id, email, password, chatgpt, status, ChatGpt_used, ChatGpt_limit, last_reset_date, chatgptlimittype) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (new_id, email, password, 0, 'Pending', 0, global_gpt, last_reset_date, "default")
         )
 

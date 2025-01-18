@@ -27,6 +27,8 @@ import json
 from streamlit_js_eval import streamlit_js_eval
 from streamlit_modal import Modal
 import os
+from docx import Document
+from io import BytesIO
 
 st.set_page_config(page_title="HazMat GIS",page_icon="logo1.png")
 
@@ -697,6 +699,7 @@ def display_col1():
                     args=(id, toggle_key),
                 )
             with col35:
+                st.write("")
                 number_key = f"number{i}"
                 st.number_input(
                     " ",
@@ -710,6 +713,7 @@ def display_col1():
                     min_value=0,
                 )
             with col36:
+                st.write("")
                 if st.button("🗑️", key=f"delete_{i}"):
                     st.session_state.show_modal = True
                     st.session_state.delete_email = row["Email"]
@@ -1280,11 +1284,19 @@ def admin_panel():
                         </a>
                     ''', unsafe_allow_html=True)
                     response = conn.get_gpt_response(row_data["Link"])
+                    def create_word_file(content):
+                        doc = Document()
+                        doc.add_paragraph(content)  # Add the response text as a paragraph
+                        buffer = BytesIO()
+                        doc.save(buffer)
+                        buffer.seek(0)  # Reset the buffer position to the start
+                        return buffer
+                    word_file = create_word_file(response)
                     st.download_button(
                         label="Download Response",
-                        data=response,  # File content as a string
-                        file_name="response.txt",  # File name with .txt extension
-                        mime="text/plain"  # MIME type for plain text files
+                        data=word_file,  # File content as a BytesIO object
+                        file_name="response.docx",  # File name with .docx extension
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
                     )
                     st.write("Summary Response:", response)  
 
@@ -1476,7 +1488,6 @@ def admin_panel():
             with st.container():
                 col1, col2 = st.columns([1, 1])  # Equal-sized columns for buttons
                 with col1:
-                    from io import BytesIO
                     excel_buffer = BytesIO()
                     excel_files[selected_file].to_excel(excel_buffer, index=False, engine='openpyxl')
                     excel_data = excel_buffer.getvalue()
