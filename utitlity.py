@@ -313,8 +313,10 @@ class sqlpy:
                 self.cursor.execute("SELECT last_reset_date FROM users WHERE email = ?",(user,))
                 old_date = self.cursor.fetchone()[0]
                 new_date = datetime.now()
-                difference = new_date - datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S")
+                old_date = datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S.%f")
+                difference = new_date - old_date
                 if difference.days >= 30:
+                    print(difference.days)
                     n = difference.days//30
                     new_datetime = old_date + relativedelta(months=n)
                     self.cursor.execute("UPDATE users SET ChatGpt_used = ? , last_reset_date = ? WHERE email = ?",(0,new_datetime,user))
@@ -328,7 +330,7 @@ class sqlpy:
         self.cursor.execute("SELECT last_reset_date FROM users WHERE email = ?",(user,))
         old_date = self.cursor.fetchone()[0]
         new_date = datetime.now()
-        difference = new_date - datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S")
+        difference = new_date - datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S.%f")
         if difference.days >= 30:
             n = difference.days//30
             new_datetime = old_date + relativedelta(months=n)
