@@ -440,46 +440,49 @@ def pending_page():
 
 
 def register_page():
-    columns = st.columns((2.5, 5, 2.5))
+    columns = st.columns((1, 8, 1))
     with columns[1]:
         with st.container(border=True):
             st.subheader("Register")
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            if st.button("Register"):
-                if not email:
-                    st.warning("Please enter email")
-                elif not password:
-                    st.warning("Please enter passowrd")
-                else:
-                    if conn.is_user_exist(email):
-                        st.warning("User Already Exists")
+            columns = st.columns((2.7,6,2))
+            with columns[2]:
+                if st.button("Register"):
+                    if not email:
+                        st.warning("Please enter email")
+                    elif not password:
+                        st.warning("Please enter passowrd")
                     else:
-                        if valid_email(email):
-                            if valid_password(password):
-                                status = conn.get_status(email)
-                                if status == "Rejected":
-                                    st.session_state.page = "Rejected"
-                                    st.rerun()
-                                elif status == "Pending":
-                                    st.session_state.page = "Pending"
-                                    st.rerun()
-                                else:
-                                    code = send_email_code(email)
-                                    st.session_state.code = code
-                                    st.session_state.reg_email = email
-                                    st.session_state.reg_password = password
-                                    st.session_state.page = "code_verification"
-                                    st.rerun()
-                            else:
-                                st.warning(
-                                    "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
-                                )
+                        if conn.is_user_exist(email):
+                            st.warning("User Already Exists")
                         else:
-                            st.warning("Invalid Email, Try Again")
-            if st.button("Back to Login"):
-                st.session_state.page = "Login"
-                st.rerun()
+                            if valid_email(email):
+                                if valid_password(password):
+                                    status = conn.get_status(email)
+                                    if status == "Rejected":
+                                        st.session_state.page = "Rejected"
+                                        st.rerun()
+                                    elif status == "Pending":
+                                        st.session_state.page = "Pending"
+                                        st.rerun()
+                                    else:
+                                        code = send_email_code(email)
+                                        st.session_state.code = code
+                                        st.session_state.reg_email = email
+                                        st.session_state.reg_password = password
+                                        st.session_state.page = "code_verification"
+                                        st.rerun()
+                                else:
+                                    st.warning(
+                                        "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
+                                    )
+                            else:
+                                st.warning("Invalid Email, Try Again")
+            with columns[0]:
+                if st.button("Back to Login"):
+                    st.session_state.page = "Login"
+                    st.rerun()
 
 def centralize_content():
     st.markdown(
@@ -667,19 +670,23 @@ def display_col1():
             st.markdown("#### GPT Access")
         with header_col5:
             st.markdown("#### GPT Limit")
-
+        st.markdown(
+            """
+            <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
+            """,
+            unsafe_allow_html=True
+        )
         # Iterate over the DataFrame rows
         for i, row in df.iterrows():
             col31, col32, col33, col34, col35, col36 = st.columns((1, 3, 2, 2, 2, 1))
             id = row["ID"]
             with col31:
-                st.write("")
-                st.write(str(row["ID"]))
+                st.markdown(f"#### {row['ID']}", unsafe_allow_html=True)
             with col32:
                 st.write("")
-                st.write(row["Email"])
+                st.markdown(f"###### {row["Email"]}", unsafe_allow_html=True)
             with col34:
-                st.write("")
+                # st.write("")
                 toggle_key_1 = f"t{i}"
                 st.toggle(
                     "Off / On",
@@ -689,7 +696,7 @@ def display_col1():
                     args=(id, toggle_key_1),
                 )
             with col33:
-                st.write("")
+                # st.write("")
                 toggle_key = f"t1{i}"
                 st.toggle(
                     "Revoke / Grant",
@@ -699,7 +706,7 @@ def display_col1():
                     args=(id, toggle_key),
                 )
             with col35:
-                st.write("")
+                # st.write("")
                 number_key = f"number{i}"
                 st.number_input(
                     " ",
@@ -713,10 +720,16 @@ def display_col1():
                     min_value=0,
                 )
             with col36:
-                st.write("")
+                # st.write("")
                 if st.button("🗑️", key=f"delete_{i}"):
                     st.session_state.show_modal = True
                     st.session_state.delete_email = row["Email"]
+            st.markdown(
+                """
+                <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
+                """,
+                unsafe_allow_html=True
+            )
                     
             if st.session_state.get("show_modal", False) and st.session_state.get("delete_email", False)==row["Email"]:            
                 show_delete_confirmation_modal(st.session_state.delete_email)
@@ -744,6 +757,13 @@ def delete_user(email):
     conn.delete_user(email)
     st.session_state.show_modal = False
     # st.rerun()
+def create_word_file(content):
+    doc = Document()
+    doc.add_paragraph(content)  # Add the response text as a paragraph
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)  # Reset the buffer position to the start
+    return buffer
 
 def cancel_delete():
     st.session_state.show_modal = False
@@ -1284,13 +1304,7 @@ def admin_panel():
                         </a>
                     ''', unsafe_allow_html=True)
                     response = conn.get_gpt_response(row_data["Link"])
-                    def create_word_file(content):
-                        doc = Document()
-                        doc.add_paragraph(content)  # Add the response text as a paragraph
-                        buffer = BytesIO()
-                        doc.save(buffer)
-                        buffer.seek(0)  # Reset the buffer position to the start
-                        return buffer
+                    
                     word_file = create_word_file(response)
                     st.download_button(
                         label="Download Response",
@@ -1594,7 +1608,116 @@ def chatgpt_explain(prompt):
 def summarize():
     cookies["summarize"] = "True"
     # cookies.save()
+@st.fragment
+def render_aggrid_data(df_display, user_type,user_email):
+    full_data = df_display.copy()
+    gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
+    gb.configure_column("Category", minWidth=100)
+    gb.configure_column("Title", minWidth=400)
+    gb.configure_column("Country", minWidth=250)
+    gb.configure_column("City", minWidth=200)
+    gb.configure_column("Date", minWidth=100)
+    gb.configure_column("Impact", minWidth=150)
+    gb.configure_column("Casuality", minWidth=50)
+    gb.configure_column("Injuries", minWidth=50)
+    gb.configure_column("Full Link", minWidth=100)
+    gb.configure_column("Severity", minWidth=100)
+    if user_type=="admin":
+        gb.configure_column("Coordinates", minWidth=200)
 
+    gb.configure_selection("single", use_checkbox=True)
+    if user_type == "admin":
+        gb.configure_default_column(editable=True)
+    gb.configure_column(
+        "Full Link",
+        headerName="Link",
+        cellRenderer=JsCode(
+            """
+            class UrlCellRenderer {
+            init(params) {
+                this.eGui = document.createElement('a');
+                this.eGui.innerText = 'Link';
+                this.eGui.setAttribute('href', params.value);
+                this.eGui.setAttribute('style', "text-decoration:none");
+                this.eGui.setAttribute('target', "_blank");
+            }
+            getGui() {
+                return this.eGui;
+            }
+            }
+        """
+        ),
+    )
+    grid_options = gb.build()
+
+    grid_response = AgGrid(
+        df_display,
+        gridOptions=grid_options,
+        updateMode=GridUpdateMode.MODEL_CHANGED,
+        allow_unsafe_jscode=True,
+        height=400,
+        theme="streamlit",
+        fit_columns_on_grid_load=True,
+    )
+    selected_row =  grid_response.get("selected_rows", [])
+    chatgpt = conn.get_gpt_status()
+    if chatgpt and (
+        user_type == "admin"
+        or (
+            conn.get_user_gpt_status(user_email)
+            and conn.get_gpt_limit_check(user_email)
+        )
+    ):
+        if "summarize" not in st.session_state:
+            st.session_state.summarize = None
+            cookies["summarize"] = "False"
+
+        if cookies.get("summarize") == "True":
+            if selected_row is not None:
+                with st.container():
+                    st.subheader("Summary")
+                    url = selected_row["Full Link"][0]
+                    title = selected_row["Title"][0]
+
+                    # Placeholder for loader
+                    loader_placeholder = st.empty()
+
+                    with loader_placeholder:
+                        # Display loading spinner
+                        with st.spinner("Generating response, please wait..."):
+                            response = conn.get_gpt_response(url)
+                            if not response:
+                                if cookies.get(title) is not None:
+                                    response = cookies.get(title)
+                                else:
+                                    prompt = f"URL: {url} Title: {title} "
+                                    with open("prompt.txt", "r") as file:
+                                        content = file.read()
+                                    prompt = prompt + content
+                                    response = chatgpt_explain(prompt)
+                                    cookies[title] = response
+                                    conn.add_gpt_response(url, response)
+
+                            if user_type != "admin":
+                                conn.increase_gpt(user_email)
+                                conn.add_gpt_history(user_email, url, title)
+                            
+
+                    # Clear loader and display response
+                    loader_placeholder.empty()
+                    word_file = create_word_file(response)
+                    st.download_button(
+                        label="Download Response",
+                        data=word_file,  # File content as a BytesIO object
+                        file_name="response.docx",  # File name with .docx extension
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
+                    )
+                    st.write(response)
+
+                cookies["summarize"] = "False"
+        else:
+            if selected_row is not None:
+                st.button("Summarize", on_click=summarize)
 
 def render_aggrid(df_display, user_type,filename="temp"):
     full_data = df_display.copy()
@@ -1674,8 +1797,7 @@ def render_aggrid(df_display, user_type,filename="temp"):
 
 
 def change_password(email):
-    st.write(email)
-    columns = st.columns((2.5, 5, 2.5))
+    columns = st.columns((1, 8, 1))
     with columns[1]:
         st.subheader("Change Password")
         with st.container(border=True):
@@ -1685,7 +1807,7 @@ def change_password(email):
             is_user = conn.check_login_user(email, current_password)
 
             is_admin = conn.check_login_admin(email, current_password)
-            columns = st.columns((2.5, 4, 3.5))
+            columns = st.columns((2.5, 4, 2.7))
             with columns[2]:
                 update_password = st.button("Update Password")
             with columns[0]:
@@ -1761,7 +1883,8 @@ def show_toast(message, duration=2):
     </div>
     """
     st.markdown(toast_html, unsafe_allow_html=True)
-
+def set_active_tab(tab_name):
+    st.session_state.selected_tab = tab_name
 
 def main_display(user_type, user_email):
     # st.sidebar.image('logo.png',width=120)
@@ -1877,7 +2000,7 @@ def main_display(user_type, user_email):
         search_term,
     )
 
-    tab1, tab2, tab3 = st.tabs(["Incident Map", "Heatmap", "Data"])
+    tab1, tab2, tab3 = st.tabs(["Incident Map", "Heatmap","Data"])
 
     with tab1:
         st.subheader("Incident Map")
@@ -2020,7 +2143,7 @@ def main_display(user_type, user_email):
 
         heatmap = create_heatmap(heat_data)
         folium_static(heatmap, width=1400)
-
+    
     with tab3:
         st.subheader("Filtered Data")
         if user_type == "admin":
@@ -2073,61 +2196,62 @@ def main_display(user_type, user_email):
         )
 
         with st.container():
-            selected_row = render_aggrid(df_display, user_type)
-        chatgpt = conn.get_gpt_status()
-        if chatgpt and (
-            user_type == "admin"
-            or (
-                conn.get_user_gpt_status(user_email)
-                and conn.get_gpt_limit_check(user_email)
-            )
-        ):
-            if "summarize" not in st.session_state:
-                st.session_state.summarize = None
-            if cookies.get("summarize") == "True":
-                if selected_row is not None:
-                    with st.container():
-                        st.subheader("Summary")
-                        url = selected_row["Full Link"][0]
-                        title = selected_row["Title"][0]
+            selected_row = render_aggrid_data(df_display, user_type,user_email)
+        #     st.write("Selected Row:",selected_row)
+        # chatgpt = conn.get_gpt_status()
+        # if chatgpt and (
+        #     user_type == "admin"
+        #     or (
+        #         conn.get_user_gpt_status(user_email)
+        #         and conn.get_gpt_limit_check(user_email)
+        #     )
+        # ):
+        #     if "summarize" not in st.session_state:
+        #         st.session_state.summarize = None
+        #     if cookies.get("summarize") == "True":
+        #         if selected_row is not None:
+        #             with st.container():
+        #                 st.subheader("Summary")
+        #                 url = selected_row["Full Link"][0]
+        #                 title = selected_row["Title"][0]
 
-                        # Placeholder for loader
-                        loader_placeholder = st.empty()
+        #                 # Placeholder for loader
+        #                 loader_placeholder = st.empty()
 
-                        with loader_placeholder:
-                            # Display loading spinner
-                            with st.spinner("Generating response, please wait..."):
-                                response = conn.get_gpt_response(url)
-                                if not response:
-                                    if cookies.get(title) is not None:
-                                        response = cookies.get(title)
-                                    else:
-                                        prompt = f"URL: {url} Title: {title} "
-                                        with open("prompt.txt", "r") as file:
-                                            content = file.read()
-                                        prompt = prompt + content
-                                        response = chatgpt_explain(prompt)
-                                        cookies[title] = response
+        #                 with loader_placeholder:
+        #                     # Display loading spinner
+        #                     with st.spinner("Generating response, please wait..."):
+        #                         response = conn.get_gpt_response(url)
+        #                         if not response:
+        #                             if cookies.get(title) is not None:
+        #                                 response = cookies.get(title)
+        #                             else:
+        #                                 prompt = f"URL: {url} Title: {title} "
+        #                                 with open("prompt.txt", "r") as file:
+        #                                     content = file.read()
+        #                                 prompt = prompt + content
+        #                                 response = chatgpt_explain(prompt)
+        #                                 cookies[title] = response
 
-                                if user_type != "admin":
-                                    conn.increase_gpt(user_email)
-                                    conn.add_gpt_history(user_email, url, title)
-                                    conn.add_gpt_response(url, response)
+        #                         if user_type != "admin":
+        #                             conn.increase_gpt(user_email)
+        #                             conn.add_gpt_history(user_email, url, title)
+        #                             conn.add_gpt_response(url, response)
 
-                        # Clear loader and display response
-                        loader_placeholder.empty()
-                        st.download_button(
-                            label="Download Response",
-                            data=response,  # File content as a string
-                            file_name="response.txt",  # File name with .txt extension
-                            mime="text/plain"  # MIME type for plain text files
-                        )
-                        st.write(response)
+        #                 # Clear loader and display response
+        #                 loader_placeholder.empty()
+        #                 st.download_button(
+        #                     label="Download Response",
+        #                     data=response,  # File content as a string
+        #                     file_name="response.txt",  # File name with .txt extension
+        #                     mime="text/plain"  # MIME type for plain text files
+        #                 )
+        #                 st.write(response)
 
-                    cookies["summarize"] = "False"
-            else:
-                if selected_row is not None:
-                    st.button("Summarize", on_click=summarize)
+        #             cookies["summarize"] = "False"
+        #     else:
+        #         if selected_row is not None:
+        #             st.button("Summarize", on_click=summarize)
 
     st.markdown("---")
     with st.expander("HazMat GIS Disclaimer", expanded=False):
@@ -2149,14 +2273,14 @@ def generate_temp_password(length=8):
 
 # Function to check email and send temporary password
 def forget_password():
-    columns = st.columns((2.5, 5, 2.5))
+    columns = st.columns((1,8,1))
     with columns[1]:
         with st.container(border=True):
             st.title("Forget Password")
 
             email = st.text_input("Enter your email")
 
-            columns = st.columns((2.5, 5, 2.5))
+            columns = st.columns((2.7,6,2))
             with columns[2]:
                 submit = st.button("Submit")
             with columns[0]:
