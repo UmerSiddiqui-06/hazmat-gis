@@ -684,7 +684,7 @@ def display_col1():
                 st.markdown(f"#### {row['ID']}", unsafe_allow_html=True)
             with col32:
                 st.write("")
-                st.markdown(f"###### {row["Email"]}", unsafe_allow_html=True)
+                st.markdown(f"###### {row['Email']}", unsafe_allow_html=True)
             with col34:
                 # st.write("")
                 toggle_key_1 = f"t{i}"
