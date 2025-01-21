@@ -447,6 +447,7 @@ def register_page():
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             columns = st.columns((2.7,6,2))
+            is_weak_password = False
             with columns[2]:
                 if st.button("Register"):
                     if not email:
@@ -459,6 +460,7 @@ def register_page():
                         else:
                             if valid_email(email):
                                 if valid_password(password):
+                                    is_weak_password = False
                                     status = conn.get_status(email)
                                     if status == "Rejected":
                                         st.session_state.page = "Rejected"
@@ -474,15 +476,15 @@ def register_page():
                                         st.session_state.page = "code_verification"
                                         st.rerun()
                                 else:
-                                    st.warning(
-                                        "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
-                                    )
+                                    is_weak_password = True
                             else:
                                 st.warning("Invalid Email, Try Again")
             with columns[0]:
                 if st.button("Back to Login"):
                     st.session_state.page = "Login"
                     st.rerun()
+            if is_weak_password:
+                st.warning("Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters.")
 
 def centralize_content():
     st.markdown(
