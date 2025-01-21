@@ -1,5 +1,6 @@
 [client]
-showErrorDetails = false
+showErrorDetails = "none"
+toolbarMode = "auto"
 [theme]
 base="dark"  # Options: "light", "dark"
 primaryColor="#1f77b4"  # Hex color for primary elements
@@ -12,6 +13,7 @@ headless = true
 
 [global]
 developmentMode = false
+
 
 
 
