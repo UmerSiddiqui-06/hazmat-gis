@@ -646,7 +646,7 @@ def display_col1():
         df.columns = ["ID", "Email", "ChatGpt_limit"]
 
         # Check for changes in the number of users and reinitialize session states
-        if "prev_user_count" not in st.session_state or st.session_state.prev_user_count != len(users):
+        if "prev_user_count" not in st.session_state or st.session_state.prev_user_count != len(users) or "gpt_limit_state" not in st.session_state:
             st.session_state.prev_user_count = len(users)  # Update user count
             st.session_state.toggle_states_gpt = {
                 f"t{i}": gpt_status.iloc[i] for i in range(len(users))
@@ -657,7 +657,6 @@ def display_col1():
             st.session_state.gpt_limit_state = {
                 f"number{i}": gptlimit.iloc[i] for i in range(len(users))
             }
-
         # Display header
         header_col1, header_col2, header_col3, header_col4, header_col5,header_col6 = st.columns(
             (1, 3, 2, 2, 2,1)
