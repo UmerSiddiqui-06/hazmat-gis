@@ -41,7 +41,7 @@ cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
 
-
+warnings.filterwarnings("ignore")
 # Connection with database
 conn = utitlity.sqlpy()
 
@@ -49,9 +49,9 @@ def load_data():
     dataframes = []
     
     # Iterate over all files in the folder
-    for file_name in os.listdir("data"):
+    for file_name in os.listdir("/var/data"):
         # Build the full file path
-        file_path = os.path.join("data", file_name)
+        file_path = os.path.join("/var/data", file_name)
         
         # Check if the file is an Excel file
         if file_name.endswith(('.xlsx', '.xls')):
@@ -771,7 +771,7 @@ def cancel_delete():
     # st.rerun()
 
 def admin_panel():
-    
+
     with st.sidebar:
         # Go Back Button
         if st.button("Go Back"):
@@ -981,6 +981,7 @@ def admin_panel():
                         gb.configure_grid_options(domLayout="normal")
                         gb.configure_column("Email", tooltipField="Email")
                         gb.configure_column("Time", tooltipField="Time")
+                        gb.configure_default_column(editable=True, resizable=True, flex=1)
                         grid_options = gb.build()
 
                         # Display with AgGrid
@@ -1479,65 +1480,64 @@ def admin_panel():
                     st.warning("Please enter filename")
 
         excel_files = {}
-        for file_name in os.listdir("data"):
+        for file_name in os.listdir("/var/data"):
             if file_name.endswith(('.xlsx', '.xls')):
-                file_path = os.path.join("data", file_name)
+                file_path = os.path.join("/var/data", file_name)
                 excel_files[file_name] = pd.read_excel(file_path)
         
         if not excel_files:
             st.warning("No Excel files found in the specified folder.")
-            return
-        
-        # Streamlit dropdown to select a file
-        selected_file = st.selectbox("Select an Excel file to view:", list(excel_files.keys()))
-        if "confirm_delete" not in st.session_state:
-            st.session_state.confirm_delete = False
-            st.session_state.file_to_delete = None
-        
-        # Display the selected file's DataFrame
-        if selected_file:
-            # Create a header for the file
-            st.subheader(f"Contents of {selected_file}")
-
-            # Use a container to tightly group the buttons
-            with st.container():
-                col1, col2 = st.columns([1, 1])  # Equal-sized columns for buttons
-                with col1:
-                    excel_buffer = BytesIO()
-                    excel_files[selected_file].to_excel(excel_buffer, index=False, engine='openpyxl')
-                    excel_data = excel_buffer.getvalue()
-                    st.download_button(
-                    label="⬇️ Download",
-                    data=excel_data,
-                    file_name=selected_file,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                with col2:
-                    if st.button("🗑️ Delete"):
-                        st.session_state.confirm_delete = True
-                        st.session_state.file_to_delete = "data/" + selected_file
+        else:        
+            # Streamlit dropdown to select a file
+            selected_file = st.selectbox("Select an Excel file to view:", list(excel_files.keys()))
+            if "confirm_delete" not in st.session_state:
+                st.session_state.confirm_delete = False
+                st.session_state.file_to_delete = None
             
-            # Confirmation Modal
-            if st.session_state.confirm_delete:
-                st.warning(f"Are you sure you want to delete {selected_file}?")
-                confirm_col1, confirm_col2 = st.columns([1, 1])
+            # Display the selected file's DataFrame
+            if selected_file:
+                # Create a header for the file
+                st.subheader(f"Contents of {selected_file}")
 
-                with confirm_col1:
-                    if st.button("Yes, Delete"):
-                        if os.path.exists(st.session_state.file_to_delete):
-                            os.remove(st.session_state.file_to_delete)
-                            st.success(f"File {selected_file} has been deleted.")
+                # Use a container to tightly group the buttons
+                with st.container():
+                    col1, col2 = st.columns([1, 1])  # Equal-sized columns for buttons
+                    with col1:
+                        excel_buffer = BytesIO()
+                        excel_files[selected_file].to_excel(excel_buffer, index=False, engine='openpyxl')
+                        excel_data = excel_buffer.getvalue()
+                        st.download_button(
+                        label="⬇️ Download",
+                        data=excel_data,
+                        file_name=selected_file,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    with col2:
+                        if st.button("🗑️ Delete"):
+                            st.session_state.confirm_delete = True
+                            st.session_state.file_to_delete = "/var/data/" + selected_file
+                
+                # Confirmation Modal
+                if st.session_state.confirm_delete:
+                    st.warning(f"Are you sure you want to delete {selected_file}?")
+                    confirm_col1, confirm_col2 = st.columns([1, 1])
+
+                    with confirm_col1:
+                        if st.button("Yes, Delete"):
+                            if os.path.exists(st.session_state.file_to_delete):
+                                os.remove(st.session_state.file_to_delete)
+                                st.success(f"File {selected_file} has been deleted.")
+                                st.session_state.confirm_delete = False
+                                st.session_state.file_to_delete = None
+                                st.rerun()
+
+                    with confirm_col2:
+                        if st.button("Cancel"):
                             st.session_state.confirm_delete = False
                             st.session_state.file_to_delete = None
-                            st.rerun()
-
-                with confirm_col2:
-                    if st.button("Cancel"):
-                        st.session_state.confirm_delete = False
-                        st.session_state.file_to_delete = None
 
 
-            render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
+                render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
 
 def increase_gpt_limit(user_id, number_key):
     if st.session_state[number_key] != st.session_state.gpt_limit_state[number_key]:
@@ -1887,29 +1887,41 @@ def show_toast(message, duration=2):
 def set_active_tab(tab_name):
     st.session_state.selected_tab = tab_name
 
-def main_display(user_type, user_email):
-    # st.sidebar.image('logo.png',width=120)
+def move_to_admin():
+    st.session_state.page = "admin_panel"
+    cookies["page"] = "admin_panel"
+    cookies.save()
+    # st.rerun()
+
+def move_to_change_password():
+    st.session_state.page = "change_password"
+    # st.rerun()
+
+def logout(user_type):
+    st.session_state.page = "Login"
+    st.session_state.logged_in = False
+    st.session_state.user_email = None
     if user_type == "admin":
-        if st.sidebar.button("Admin Panel", use_container_width=True):
-            st.session_state.page = "admin_panel"
-            cookies["page"] = "admin_panel"
-            st.rerun()
-
-    if st.sidebar.button("Change Password", use_container_width=True):
-        st.session_state.page = "change_password"
-        st.rerun()
-
-    if st.sidebar.button("Logout", use_container_width=True):
-        st.session_state.page = "Login"
-        st.session_state.logged_in = False
-        st.session_state.user_email = False
-        if user_type != "admin":
-            st.rerun()
         cookies["user_email"] = "False"
         cookies["logged_in"] = "False"
         cookies["page"] = "Login"
         cookies.save()
-        st.rerun()
+    # st.rerun()
+
+def main_display(user_type, user_email):
+    # Redirect to Admin Panel for Admin Users
+    if user_type == "admin":
+        admin_button = st.sidebar.button("Admin Panel", use_container_width=True,on_click=move_to_admin)
+            
+
+    # Redirect to Change Password Page
+    st.sidebar.button("Change Password", use_container_width=True, on_click=move_to_change_password)
+        
+
+    # Logout Handling
+    st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
+
+    # Perform conditional rendering based on the updated state
     data = load_data()
     world = load_world()
     split_rows = data.dropna(subset=["Country", "City"])
@@ -2328,11 +2340,12 @@ def forget_password():
 
 
 def main():
+    
     # st.title("HazMat GIS")
     # st.sidebar.image('logo.png',width=120)
     if "page" not in st.session_state:
         st.session_state.page = "Login"
-
+    
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
     if "user_type" not in st.session_state:
@@ -2374,13 +2387,12 @@ def main():
     ):
         main_display(st.session_state.user_type, st.session_state.user_email)
     else:
-
         if cookies.get("logged_in") == "True":
             st.session_state.logged_in = True
             st.session_state.page = cookies.get("page")
         else:
             st.session_state.logged_in = False
-
+        
         if not st.session_state.logged_in:
             if st.session_state.page == "Login":
                 login_page()
@@ -2392,16 +2404,14 @@ def main():
             else:
                 if cookies.get("user_type") == "admin":
                     st.session_state.user_type = "admin"
+                    # cookies["page"] = "main_display"
+                    # cookies.save()
                 elif cookies.get("user_type") == "user":
                     st.session_state.user_type = "user"
-                cookies["page"] = "main_display"
-                cookies.save()
                 st.session_state.user_email = cookies.get("user_email", None)
                 if st.session_state.user_email == "False":
                     st.session_state.user_email = None
                 main_display(st.session_state.user_type, st.session_state.user_email)
-
-
 if __name__ == "__main__":
     main()
 
