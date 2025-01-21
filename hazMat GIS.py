@@ -880,7 +880,7 @@ def admin_panel():
                 update_mode="MODEL_CHANGED",
                 height=400,
                 fit_columns_on_grid_load=True,
-                theme="alpine",
+                theme="streamlit",
             )
 
             selected_rows = grid_response.get("selected_rows", [])
@@ -991,7 +991,7 @@ def admin_panel():
                             # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
                             fit_columns_on_grid_load=True,
                             height=200,
-                            theme="alpine",
+                            theme="streamlit",
                         )
 
                     else:
@@ -1062,7 +1062,7 @@ def admin_panel():
             update_mode="MODEL_CHANGED",
             height=400,  # Set a fixed height for vertical scrolling
             fit_columns_on_grid_load=True,  # Disable auto-fit on initial load
-            theme="alpine",
+            theme="streamlit",
         )
 
         # try:
@@ -1228,7 +1228,7 @@ def admin_panel():
                 AgGrid(
                     temp_data,
                     gridOptions=grid_options,
-                    theme="alpine",  # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
+                    theme="streamlit",  # Themes: 'streamlit', 'light', 'dark', 'balham', 'material'
                     fit_columns_on_grid_load=True,
                     height=200,
                 )
@@ -1280,7 +1280,7 @@ def admin_panel():
             update_mode="MODEL_CHANGED",
             height=400,
             fit_columns_on_grid_load=True,
-            theme="alpine",
+            theme="streamlit",
             allow_unsafe_jscode=True,
         )
         modal = Modal(key="example_modal", title="Link Details")
@@ -1372,7 +1372,7 @@ def admin_panel():
             update_mode="MODEL_CHANGED",
             height=400,
             fit_columns_on_grid_load=True,
-            theme="alpine",
+            theme="streamlit",
         )
 
         selected_rows = grid_response.get("selected_rows", [])
