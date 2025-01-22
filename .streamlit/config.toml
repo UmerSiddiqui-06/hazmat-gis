@@ -1,5 +1,5 @@
 [client]
-showErrorDetails = "none"
+showErrorDetails = "full"
 toolbarMode = "auto"
 [theme]
 base="dark"  # Options: "light", "dark"
