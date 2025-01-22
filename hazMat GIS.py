@@ -46,23 +46,26 @@ warnings.filterwarnings("ignore")
 conn = utitlity.sqlpy()
 
 def load_data():
-    dataframes = []
-    
-    # Iterate over all files in the folder
-    for file_name in os.listdir("/var/data"):
-        # Build the full file path
-        file_path = os.path.join("/var/data", file_name)
+    try:
+        dataframes = []
         
-        # Check if the file is an Excel file
-        if file_name.endswith(('.xlsx', '.xls')):
-            # Read the Excel file into a DataFrame and append to the list
-            df = pd.read_excel(file_path)
-            dataframes.append(df)
-    
-    # Concatenate all DataFrames into a single DataFrame
-    data = pd.concat(dataframes, ignore_index=True)
-    data["Date"] = pd.to_datetime(data["Date"])
-    data['Country'] = standardize_country_column(data['Country'])
+        # Iterate over all files in the folder
+        for file_name in os.listdir("/var/data"):
+            # Build the full file path
+            file_path = os.path.join("/var/data", file_name)
+            
+            # Check if the file is an Excel file
+            if file_name.endswith(('.xlsx', '.xls')):
+                # Read the Excel file into a DataFrame and append to the list
+                df = pd.read_excel(file_path)
+                dataframes.append(df)
+        
+        # Concatenate all DataFrames into a single DataFrame
+        data = pd.concat(dataframes, ignore_index=True)
+        data["Date"] = pd.to_datetime(data["Date"])
+        data['Country'] = standardize_country_column(data['Country'])
+    except:
+        data = None
     return data
 
 def load_country_list(file_path):
@@ -1923,361 +1926,363 @@ def main_display(user_type, user_email):
 
     # Perform conditional rendering based on the updated state
     data = load_data()
-    world = load_world()
-    split_rows = data.dropna(subset=["Country", "City"])
-    processed_split = (
-        split_rows.assign(
-            country_city=split_rows.apply(
-                lambda row: list(zip(row["Country"].split(", "), row["City"].split(", "))),
-                axis=1,
+    if data:
+        world = load_world()
+        split_rows = data.dropna(subset=["Country", "City"])
+        processed_split = (
+            split_rows.assign(
+                country_city=split_rows.apply(
+                    lambda row: list(zip(row["Country"].split(", "), row["City"].split(", "))),
+                    axis=1,
+                )
             )
+            .explode("country_city")
+            .assign(
+                Country=lambda df: df["country_city"].str[0],
+                City=lambda df: df["country_city"].str[1],
+            )
+            .drop(columns=["country_city"])  # Drop intermediate column
+            .reset_index(drop=True)  # Reset index for clarity
         )
-        .explode("country_city")
-        .assign(
-            Country=lambda df: df["country_city"].str[0],
-            City=lambda df: df["country_city"].str[1],
-        )
-        .drop(columns=["country_city"])  # Drop intermediate column
-        .reset_index(drop=True)  # Reset index for clarity
-    )
 
-    # Append rows with missing values back to the processed DataFrame
-    missing_rows = data[data[["Country", "City"]].isnull().any(axis=1)]
-    final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
-    final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
-    final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
-    final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
-    final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
-    # final_df.to_excel("data/First File.xlsx", index=False)
-    final_df['Category'] = final_df['Category'].str.split(',')
-    df_exploded = final_df.explode('Category', ignore_index=True)
-    df_exploded['Category'] = df_exploded['Category'].str.strip()
-    data = preprocess_data(df_exploded)
-
-    search_term = st.text_input("Search incidents", "")
-
-    st.sidebar.header("Filters")
-    type_filter = st.sidebar.multiselect("Type", data["Type"].unique())
-    category_filter = st.sidebar.multiselect("Category", data["Category"].unique())
-    country_filter = st.sidebar.multiselect("Country", data["Country"].unique())
-    impact_filter = st.sidebar.multiselect("Impact", data["Impact"].unique())
-    severity_filter = st.sidebar.multiselect("Severity", data["Severity"].unique())
-
-    st.sidebar.header("Date Range")
-    date_filter = st.sidebar.radio(
-        "Select time range:",
-        ("All Time", "Past Day", "Past Week", "Past Month", "Past Year", "Custom"),
-    )
-
-    if date_filter == "Custom":
-        col1, col2 = st.sidebar.columns(2)
-        with col1:
-            start_date = st.date_input(
-                "From date",
-                value=data["Date"].min().date(),
-                min_value=data["Date"].min().date(),
-                max_value=data["Date"].max().date(),
-            )
-        with col2:
-            end_date = st.date_input(
-                "To date",
-                value=data["Date"].max().date(),
-                min_value=data["Date"].min().date(),
-                max_value=data["Date"].max().date(),
-            )
-    else:
-        end_date = pd.Timestamp.now().date()
-        if date_filter == "All Time":
-            start_date = data["Date"].min().date()
-        elif date_filter == "Past Day":
-            start_date = end_date - pd.Timedelta(days=1)
-        elif date_filter == "Past Week":
-            start_date = end_date - pd.Timedelta(weeks=1)
-        elif date_filter == "Past Month":
-            start_date = end_date - pd.Timedelta(days=30)
-        elif date_filter == "Past Year":
-            start_date = end_date - pd.Timedelta(days=365)
-
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
-
-    filtered_data = filter_data(
-        data,
-        type_filter,
-        category_filter,
-        country_filter,
-        impact_filter,
-        severity_filter,
-        start_date,
-        end_date,
-        search_term,
-    )
-
-    tab1, tab2, tab3 = st.tabs(["Incident Map", "Heatmap","Data"])
-
-    with tab1:
-        st.subheader("Incident Map")
-        
-        selected_categories = st.session_state.get("selected_categories", None)
-        m = create_folium_map(filtered_data, world, selected_categories)
-        
-        folium_static(m, width=900, height=500)
-        df = filtered_data.copy()
-        df['Category'] = df['Category'].str.split(',')
-        df_exploded = df.explode('Category', ignore_index=True)
+        # Append rows with missing values back to the processed DataFrame
+        missing_rows = data[data[["Country", "City"]].isnull().any(axis=1)]
+        final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
+        final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
+        final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
+        final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
+        final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
+        # final_df.to_excel("data/First File.xlsx", index=False)
+        final_df['Category'] = final_df['Category'].str.split(',')
+        df_exploded = final_df.explode('Category', ignore_index=True)
         df_exploded['Category'] = df_exploded['Category'].str.strip()
-        category_counts = df_exploded["Category"].value_counts()
-        color_map = {
-            "Explosive": "black",
-            "Biological": "green",
-            "Radiological": "red",
-            "Chemical": "orange",
-            "Nuclear": "blue",
-        }
+        data = preprocess_data(df_exploded)
 
-        fig1 = px.pie(
-            values=category_counts.values,
-            names=category_counts.index,
-            title="Distribution by Category",
-            color=category_counts.index,
-            color_discrete_map=color_map,  # Use the dictionary directly
+        search_term = st.text_input("Search incidents", "")
+
+        st.sidebar.header("Filters")
+        type_filter = st.sidebar.multiselect("Type", data["Type"].unique())
+        category_filter = st.sidebar.multiselect("Category", data["Category"].unique())
+        country_filter = st.sidebar.multiselect("Country", data["Country"].unique())
+        impact_filter = st.sidebar.multiselect("Impact", data["Impact"].unique())
+        severity_filter = st.sidebar.multiselect("Severity", data["Severity"].unique())
+
+        st.sidebar.header("Date Range")
+        date_filter = st.sidebar.radio(
+            "Select time range:",
+            ("All Time", "Past Day", "Past Week", "Past Month", "Past Year", "Custom"),
         )
 
-        fig1.update_layout(
-            template="plotly_dark",
-            height=400,
-            margin=dict(l=150),
-            legend_title="Categories",
-            legend=dict(
-                orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2
-            ),
-        )
-
-        fig1.update_traces(
-            textposition="inside",
-            textinfo="percent+label",
-            hovertemplate="<b>%{label}</b><br>Count: %{value}<br>",
-        )
-        selected_points = plotly_events(fig1, click_event=True, hover_event=False)
-        if selected_points:
-            selected_category = category_counts.index[selected_points[0]["pointNumber"]]
-            st.session_state["selected_categories"] = [selected_category]
-        elif "selected_categories" in st.session_state:
-            del st.session_state["selected_categories"]
-
-        country_counts = filtered_data["Country"].value_counts().reset_index()
-        country_counts.columns = ["Country", "Count"]
-
-        color_sequence = px.colors.qualitative.Set3
-        fig2 = px.bar(
-            country_counts,
-            x="Country",
-            y="Count",
-            title="Distribution by Country",
-            color="Country",
-            color_discrete_sequence=color_sequence,
-        )
-
-        fig2.update_layout(
-            template="plotly_dark",
-            height=400,
-            xaxis_title="Countries",
-            yaxis_title="Count",
-            showlegend=False,
-            xaxis_tickangle=45,
-            hovermode="closest",
-            xaxis=dict(showticklabels=False),
-        )
-
-        fig2.update_traces(hovertemplate="<b>%{x}</b><br>Count: %{y}<extra></extra>")
-
-        st.plotly_chart(fig2, use_container_width=True)
-        
-        st.subheader("Trend of Articles Over Time")
-        articles_by_date = (
-            filtered_data.groupby("Date").size().reset_index(name="count")
-        )
-
-        color_scales = [
-            px.colors.qualitative.Plotly,
-            px.colors.qualitative.D3,
-            px.colors.qualitative.G10,
-            px.colors.qualitative.T10,
-            px.colors.qualitative.Alphabet,
-        ]
-
-        all_colors = []
-        for scale in color_scales:
-            all_colors.extend(scale)
-
-        def is_not_black(color):
-            # Convert hex to RGB
-            r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
-
-            return (r + g + b) > 60
-
-        filtered_colors = [color for color in all_colors if is_not_black(color)]
-        fig3 = px.bar(
-            articles_by_date,
-            x="Date",
-            y="count",
-            labels={"count": "Number of Articles", "Date": "Date"},
-            title="Articles Published Over Time",
-        )
-        fig3.update_layout(
-            template="plotly_white",
-            height=300,
-            # width=300,
-            xaxis_title="Date",
-            yaxis_title="Number of Articles",
-            showlegend=False,
-        )
-        fig3.update_traces(
-            marker_color=filtered_colors,  # Use the filtered color palette
-            hovertemplate="<b>Date</b>: %{x}<br><b>Articles</b>: %{y}",
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-
-    with tab2:
-        st.subheader("Incident Heatmap")
-
-        link_counts = (
-            filtered_data.groupby(["Country", "City"])["Full Link"].count().reset_index()
-        )
-        link_counts = link_counts.rename(columns={"Full Link": "LinkCount"})
-        heatmap_data = pd.merge(filtered_data, link_counts, on=["Country", "City"])
-
-        heat_data = heatmap_data[heatmap_data["Coordinates"].notna()][
-            ["Coordinates", "LinkCount"]
-        ]
-        heat_data["lat"] = heat_data["Coordinates"].apply(lambda x: x[0])
-        heat_data["lon"] = heat_data["Coordinates"].apply(lambda x: x[1])
-        heat_data = heat_data[["lat", "lon", "LinkCount"]].values.tolist()
-
-        heatmap = create_heatmap(heat_data)
-        folium_static(heatmap, width=1400)
-    
-    with tab3:
-        st.subheader("Filtered Data")
-        if user_type == "admin":
-            display_columns = [
-                "Category",
-                "Title",
-                "Country",
-                "City",
-                "Date",
-                "Casuality",
-                "Injuries",
-                "Impact",
-                "Severity",
-                "Full Link",
-                "Coordinates"
-            ]
+        if date_filter == "Custom":
+            col1, col2 = st.sidebar.columns(2)
+            with col1:
+                start_date = st.date_input(
+                    "From date",
+                    value=data["Date"].min().date(),
+                    min_value=data["Date"].min().date(),
+                    max_value=data["Date"].max().date(),
+                )
+            with col2:
+                end_date = st.date_input(
+                    "To date",
+                    value=data["Date"].max().date(),
+                    min_value=data["Date"].min().date(),
+                    max_value=data["Date"].max().date(),
+                )
         else:
-            display_columns = [
-                "Category",
-                "Title",
-                "Country",
-                "City",
-                "Date",
-                "Casuality",
-                "Injuries",
-                "Impact",
-                "Severity",
-                "Full Link"
-            ]
-        df_display = filtered_data[display_columns].copy()
-        df_display["Date"] = df_display["Date"].dt.strftime("%d-%m-%Y")
+            end_date = pd.Timestamp.now().date()
+            if date_filter == "All Time":
+                start_date = data["Date"].min().date()
+            elif date_filter == "Past Day":
+                start_date = end_date - pd.Timedelta(days=1)
+            elif date_filter == "Past Week":
+                start_date = end_date - pd.Timedelta(weeks=1)
+            elif date_filter == "Past Month":
+                start_date = end_date - pd.Timedelta(days=30)
+            elif date_filter == "Past Year":
+                start_date = end_date - pd.Timedelta(days=365)
 
-        csv = df_display.to_csv(index=False)
-        filters = [
-            user_email,
+        start_date = pd.to_datetime(start_date)
+        end_date = pd.to_datetime(end_date)
+
+        filtered_data = filter_data(
+            data,
             type_filter,
             category_filter,
             country_filter,
             impact_filter,
             severity_filter,
-            date_filter,
-        ]
-        st.download_button(
-            label="Download Data",
-            data=csv,
-            file_name="filtered_data.csv",
-            mime="text/csv",
-            on_click=add_download_history,
-            args=[filters],
+            start_date,
+            end_date,
+            search_term,
         )
 
-        with st.container():
-            selected_row = render_aggrid_data(df_display, user_type,user_email)
-        #     st.write("Selected Row:",selected_row)
-        # chatgpt = conn.get_gpt_status()
-        # if chatgpt and (
-        #     user_type == "admin"
-        #     or (
-        #         conn.get_user_gpt_status(user_email)
-        #         and conn.get_gpt_limit_check(user_email)
-        #     )
-        # ):
-        #     if "summarize" not in st.session_state:
-        #         st.session_state.summarize = None
-        #     if cookies.get("summarize") == "True":
-        #         if selected_row is not None:
-        #             with st.container():
-        #                 st.subheader("Summary")
-        #                 url = selected_row["Full Link"][0]
-        #                 title = selected_row["Title"][0]
+        tab1, tab2, tab3 = st.tabs(["Incident Map", "Heatmap","Data"])
 
-        #                 # Placeholder for loader
-        #                 loader_placeholder = st.empty()
+        with tab1:
+            st.subheader("Incident Map")
+            
+            selected_categories = st.session_state.get("selected_categories", None)
+            m = create_folium_map(filtered_data, world, selected_categories)
+            
+            folium_static(m, width=900, height=500)
+            df = filtered_data.copy()
+            df['Category'] = df['Category'].str.split(',')
+            df_exploded = df.explode('Category', ignore_index=True)
+            df_exploded['Category'] = df_exploded['Category'].str.strip()
+            category_counts = df_exploded["Category"].value_counts()
+            color_map = {
+                "Explosive": "black",
+                "Biological": "green",
+                "Radiological": "red",
+                "Chemical": "orange",
+                "Nuclear": "blue",
+            }
 
-        #                 with loader_placeholder:
-        #                     # Display loading spinner
-        #                     with st.spinner("Generating response, please wait..."):
-        #                         response = conn.get_gpt_response(url)
-        #                         if not response:
-        #                             if cookies.get(title) is not None:
-        #                                 response = cookies.get(title)
-        #                             else:
-        #                                 prompt = f"URL: {url} Title: {title} "
-        #                                 with open("prompt.txt", "r") as file:
-        #                                     content = file.read()
-        #                                 prompt = prompt + content
-        #                                 response = chatgpt_explain(prompt)
-        #                                 cookies[title] = response
+            fig1 = px.pie(
+                values=category_counts.values,
+                names=category_counts.index,
+                title="Distribution by Category",
+                color=category_counts.index,
+                color_discrete_map=color_map,  # Use the dictionary directly
+            )
 
-        #                         if user_type != "admin":
-        #                             conn.increase_gpt(user_email)
-        #                             conn.add_gpt_history(user_email, url, title)
-        #                             conn.add_gpt_response(url, response)
+            fig1.update_layout(
+                template="plotly_dark",
+                height=400,
+                margin=dict(l=150),
+                legend_title="Categories",
+                legend=dict(
+                    orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2
+                ),
+            )
 
-        #                 # Clear loader and display response
-        #                 loader_placeholder.empty()
-        #                 st.download_button(
-        #                     label="Download Response",
-        #                     data=response,  # File content as a string
-        #                     file_name="response.txt",  # File name with .txt extension
-        #                     mime="text/plain"  # MIME type for plain text files
-        #                 )
-        #                 st.write(response)
+            fig1.update_traces(
+                textposition="inside",
+                textinfo="percent+label",
+                hovertemplate="<b>%{label}</b><br>Count: %{value}<br>",
+            )
+            selected_points = plotly_events(fig1, click_event=True, hover_event=False)
+            if selected_points:
+                selected_category = category_counts.index[selected_points[0]["pointNumber"]]
+                st.session_state["selected_categories"] = [selected_category]
+            elif "selected_categories" in st.session_state:
+                del st.session_state["selected_categories"]
 
-        #             cookies["summarize"] = "False"
-        #     else:
-        #         if selected_row is not None:
-        #             st.button("Summarize", on_click=summarize)
+            country_counts = filtered_data["Country"].value_counts().reset_index()
+            country_counts.columns = ["Country", "Count"]
 
-    st.markdown("---")
-    with st.expander("HazMat GIS Disclaimer", expanded=False):
-        st.markdown(
+            color_sequence = px.colors.qualitative.Set3
+            fig2 = px.bar(
+                country_counts,
+                x="Country",
+                y="Count",
+                title="Distribution by Country",
+                color="Country",
+                color_discrete_sequence=color_sequence,
+            )
+
+            fig2.update_layout(
+                template="plotly_dark",
+                height=400,
+                xaxis_title="Countries",
+                yaxis_title="Count",
+                showlegend=False,
+                xaxis_tickangle=45,
+                hovermode="closest",
+                xaxis=dict(showticklabels=False),
+            )
+
+            fig2.update_traces(hovertemplate="<b>%{x}</b><br>Count: %{y}<extra></extra>")
+
+            st.plotly_chart(fig2, use_container_width=True)
+            
+            st.subheader("Trend of Articles Over Time")
+            articles_by_date = (
+                filtered_data.groupby("Date").size().reset_index(name="count")
+            )
+
+            color_scales = [
+                px.colors.qualitative.Plotly,
+                px.colors.qualitative.D3,
+                px.colors.qualitative.G10,
+                px.colors.qualitative.T10,
+                px.colors.qualitative.Alphabet,
+            ]
+
+            all_colors = []
+            for scale in color_scales:
+                all_colors.extend(scale)
+
+            def is_not_black(color):
+                # Convert hex to RGB
+                r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+
+                return (r + g + b) > 60
+
+            filtered_colors = [color for color in all_colors if is_not_black(color)]
+            fig3 = px.bar(
+                articles_by_date,
+                x="Date",
+                y="count",
+                labels={"count": "Number of Articles", "Date": "Date"},
+                title="Articles Published Over Time",
+            )
+            fig3.update_layout(
+                template="plotly_white",
+                height=300,
+                # width=300,
+                xaxis_title="Date",
+                yaxis_title="Number of Articles",
+                showlegend=False,
+            )
+            fig3.update_traces(
+                marker_color=filtered_colors,  # Use the filtered color palette
+                hovertemplate="<b>Date</b>: %{x}<br><b>Articles</b>: %{y}",
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+
+        with tab2:
+            st.subheader("Incident Heatmap")
+
+            link_counts = (
+                filtered_data.groupby(["Country", "City"])["Full Link"].count().reset_index()
+            )
+            link_counts = link_counts.rename(columns={"Full Link": "LinkCount"})
+            heatmap_data = pd.merge(filtered_data, link_counts, on=["Country", "City"])
+
+            heat_data = heatmap_data[heatmap_data["Coordinates"].notna()][
+                ["Coordinates", "LinkCount"]
+            ]
+            heat_data["lat"] = heat_data["Coordinates"].apply(lambda x: x[0])
+            heat_data["lon"] = heat_data["Coordinates"].apply(lambda x: x[1])
+            heat_data = heat_data[["lat", "lon", "LinkCount"]].values.tolist()
+
+            heatmap = create_heatmap(heat_data)
+            folium_static(heatmap, width=1400)
+        
+        with tab3:
+            st.subheader("Filtered Data")
+            if user_type == "admin":
+                display_columns = [
+                    "Category",
+                    "Title",
+                    "Country",
+                    "City",
+                    "Date",
+                    "Casuality",
+                    "Injuries",
+                    "Impact",
+                    "Severity",
+                    "Full Link",
+                    "Coordinates"
+                ]
+            else:
+                display_columns = [
+                    "Category",
+                    "Title",
+                    "Country",
+                    "City",
+                    "Date",
+                    "Casuality",
+                    "Injuries",
+                    "Impact",
+                    "Severity",
+                    "Full Link"
+                ]
+            df_display = filtered_data[display_columns].copy()
+            df_display["Date"] = df_display["Date"].dt.strftime("%d-%m-%Y")
+
+            csv = df_display.to_csv(index=False)
+            filters = [
+                user_email,
+                type_filter,
+                category_filter,
+                country_filter,
+                impact_filter,
+                severity_filter,
+                date_filter,
+            ]
+            st.download_button(
+                label="Download Data",
+                data=csv,
+                file_name="filtered_data.csv",
+                mime="text/csv",
+                on_click=add_download_history,
+                args=[filters],
+            )
+
+            with st.container():
+                selected_row = render_aggrid_data(df_display, user_type,user_email)
+            #     st.write("Selected Row:",selected_row)
+            # chatgpt = conn.get_gpt_status()
+            # if chatgpt and (
+            #     user_type == "admin"
+            #     or (
+            #         conn.get_user_gpt_status(user_email)
+            #         and conn.get_gpt_limit_check(user_email)
+            #     )
+            # ):
+            #     if "summarize" not in st.session_state:
+            #         st.session_state.summarize = None
+            #     if cookies.get("summarize") == "True":
+            #         if selected_row is not None:
+            #             with st.container():
+            #                 st.subheader("Summary")
+            #                 url = selected_row["Full Link"][0]
+            #                 title = selected_row["Title"][0]
+
+            #                 # Placeholder for loader
+            #                 loader_placeholder = st.empty()
+
+            #                 with loader_placeholder:
+            #                     # Display loading spinner
+            #                     with st.spinner("Generating response, please wait..."):
+            #                         response = conn.get_gpt_response(url)
+            #                         if not response:
+            #                             if cookies.get(title) is not None:
+            #                                 response = cookies.get(title)
+            #                             else:
+            #                                 prompt = f"URL: {url} Title: {title} "
+            #                                 with open("prompt.txt", "r") as file:
+            #                                     content = file.read()
+            #                                 prompt = prompt + content
+            #                                 response = chatgpt_explain(prompt)
+            #                                 cookies[title] = response
+
+            #                         if user_type != "admin":
+            #                             conn.increase_gpt(user_email)
+            #                             conn.add_gpt_history(user_email, url, title)
+            #                             conn.add_gpt_response(url, response)
+
+            #                 # Clear loader and display response
+            #                 loader_placeholder.empty()
+            #                 st.download_button(
+            #                     label="Download Response",
+            #                     data=response,  # File content as a string
+            #                     file_name="response.txt",  # File name with .txt extension
+            #                     mime="text/plain"  # MIME type for plain text files
+            #                 )
+            #                 st.write(response)
+
+            #             cookies["summarize"] = "False"
+            #     else:
+            #         if selected_row is not None:
+            #             st.button("Summarize", on_click=summarize)
+
+        st.markdown("---")
+        with st.expander("HazMat GIS Disclaimer", expanded=False):
+            st.markdown(
+                """
+            The information presented on the HazMat GIS Dashboard is aggregated from publicly available news articles and other reputable sources. While we strive to ensure the accuracy and timeliness of the data, we cannot guarantee that all information is complete, up-to-date, or free from errors. The incidents, maps, charts, and other visualizations are intended for general informational purposes only.
+
+            Users should not rely solely on the information provided herein for critical decision-making related to hazardous materials or CBRNE (Chemical, Biological, Radiological, Nuclear, Explosive) incidents. We recommend verifying the data with official sources and consulting qualified professionals when necessary.
+
+            By accessing and using this dashboard, you acknowledge and agree that the creators and maintainers of the HazMat GIS Dashboard are not liable for any inaccuracies, omissions, or any outcomes resulting from the use of this information. Use of the dashboard is at your own risk, and you accept full responsibility for any decisions or actions taken based on the data provided.
             """
-        The information presented on the HazMat GIS Dashboard is aggregated from publicly available news articles and other reputable sources. While we strive to ensure the accuracy and timeliness of the data, we cannot guarantee that all information is complete, up-to-date, or free from errors. The incidents, maps, charts, and other visualizations are intended for general informational purposes only.
-
-        Users should not rely solely on the information provided herein for critical decision-making related to hazardous materials or CBRNE (Chemical, Biological, Radiological, Nuclear, Explosive) incidents. We recommend verifying the data with official sources and consulting qualified professionals when necessary.
-
-        By accessing and using this dashboard, you acknowledge and agree that the creators and maintainers of the HazMat GIS Dashboard are not liable for any inaccuracies, omissions, or any outcomes resulting from the use of this information. Use of the dashboard is at your own risk, and you accept full responsibility for any decisions or actions taken based on the data provided.
-        """
-        )
-
+            )
+    else:
+        st.warning("Data Unavailable")
 
 def generate_temp_password(length=8):
     characters = string.ascii_letters + string.digits + string.punctuation
