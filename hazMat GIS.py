@@ -1405,6 +1405,10 @@ def admin_panel():
                 if filename:
                     try:
                         new_data = pd.read_excel(new_data_file)
+                        new_data['Category'] = new_data['Category'].str.lower().str.capitalize()
+                        new_data['Type'] = new_data['Type'].str.lower().str.capitalize()
+                        new_data['Severity'] = new_data['Severity'].str.lower().str.capitalize()
+                        new_data['Impact'] = new_data['Impact'].str.lower().str.capitalize()
                         columns_to_strip = ["Type", "Category", "Impact", "Severity"]
                         new_data[columns_to_strip] = new_data[columns_to_strip].apply(lambda col: col.str.strip())
                         new_data['Category'] = new_data['Category'].str.title()
