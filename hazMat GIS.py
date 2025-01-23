@@ -1934,7 +1934,7 @@ def main_display(user_type, user_email):
 
     # Perform conditional rendering based on the updated state
     data = load_data()
-    if data:
+    if data is not None:
         world = load_world()
         split_rows = data.dropna(subset=["Country", "City"])
         processed_split = (
