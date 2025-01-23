@@ -1524,25 +1524,28 @@ def admin_panel():
                             if st.button("🗑️ Delete"):
                                 st.session_state.confirm_delete = True
                                 st.session_state.file_to_delete = "/var/data/" + selected_file
-                    
+                    def confirm_delete():
+                        if os.path.exists(st.session_state.file_to_delete):
+                            os.remove(st.session_state.file_to_delete)
+                            st.success(f"File {selected_file} has been deleted.")
+                            st.session_state.confirm_delete = False
+                            st.session_state.file_to_delete = None
+                            st.rerun()
+                    def cancel_delete():
+                        st.session_state.confirm_delete = False
+                        st.session_state.file_to_delete = None
+                        st.rerun()
                     # Confirmation Modal
                     if st.session_state.confirm_delete:
                         st.warning(f"Are you sure you want to delete {selected_file}?")
                         confirm_col1, confirm_col2 = st.columns([1, 1])
 
                         with confirm_col1:
-                            if st.button("Yes, Delete"):
-                                if os.path.exists(st.session_state.file_to_delete):
-                                    os.remove(st.session_state.file_to_delete)
-                                    st.success(f"File {selected_file} has been deleted.")
-                                    st.session_state.confirm_delete = False
-                                    st.session_state.file_to_delete = None
-                                    st.rerun()
+                            st.button("Yes, Delete",on_click=confirm_delete)
 
                         with confirm_col2:
-                            if st.button("Cancel"):
-                                st.session_state.confirm_delete = False
-                                st.session_state.file_to_delete = None
+                            st.button("Cancel",on_click=cancel_delete)
+                                
 
 
                     render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
