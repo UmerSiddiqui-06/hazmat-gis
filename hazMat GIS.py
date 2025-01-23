@@ -449,9 +449,9 @@ def register_page():
             st.subheader("Register")
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            columns = st.columns((2.7,6,2))
+            columns = st.columns((2,6,2.7))
             is_weak_password = False
-            with columns[2]:
+            with columns[0]:
                 if st.button("Register"):
                     if not email:
                         st.warning("Please enter email")
@@ -482,7 +482,7 @@ def register_page():
                                     is_weak_password = True
                             else:
                                 st.warning("Invalid Email, Try Again")
-            with columns[0]:
+            with columns[2]:
                 if st.button("Back to Login"):
                     st.session_state.page = "Login"
                     st.rerun()
@@ -1483,12 +1483,15 @@ def admin_panel():
                     st.warning("Please enter filename")
 
         excel_files = {}
-        for file_name in os.listdir("/var/data"):
-            if file_name.endswith(('.xlsx', '.xls')):
-                file_path = os.path.join("/var/data", file_name)
-                excel_files[file_name] = pd.read_excel(file_path)
-        
-        if not excel_files:
+        try:
+            for file_name in os.listdir("/var/data"):
+                if file_name.endswith(('.xlsx', '.xls')):
+                    file_path = os.path.join("/var/data", file_name)
+                    excel_files[file_name] = pd.read_excel(file_path)
+            
+            if not excel_files:
+                st.warning("No Excel files found in the specified folder.")
+        except:
             st.warning("No Excel files found in the specified folder.")
         else:        
             # Streamlit dropdown to select a file
@@ -1811,10 +1814,10 @@ def change_password(email):
             is_user = conn.check_login_user(email, current_password)
 
             is_admin = conn.check_login_admin(email, current_password)
-            columns = st.columns((2.5, 4, 2.7))
-            with columns[2]:
-                update_password = st.button("Update Password")
+            columns = st.columns((2.7, 4, 1.5))
             with columns[0]:
+                update_password = st.button("Update Password")
+            with columns[2]:
                 go_back = st.button("Go Back", key="back_chng_pass")
 
             if go_back:
@@ -2298,10 +2301,10 @@ def forget_password():
 
             email = st.text_input("Enter your email")
 
-            columns = st.columns((2.7,6,2))
-            with columns[2]:
-                submit = st.button("Submit")
+            columns = st.columns((2,6,2.7))
             with columns[0]:
+                submit = st.button("Submit")
+            with columns[2]:
                 back_to_login = st.button("Back to Login")
 
             if submit:
