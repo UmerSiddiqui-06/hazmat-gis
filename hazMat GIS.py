@@ -1464,7 +1464,7 @@ def admin_panel():
                         )
                         
                         filename = filename + ".xlsx"
-                        new_data.to_excel(f"data/{filename}", index=False)
+                        new_data.to_excel(f"/var/data/{filename}", index=False)
                         st.success("Data concatenated successfully")
 
                         # Provide download button for rejected rows
@@ -1495,60 +1495,61 @@ def admin_panel():
             
             if not excel_files:
                 st.warning("No Excel files found in the specified folder.")
-        except:
-            st.warning("No Excel files found in the specified folder.")
-        else:        
-            # Streamlit dropdown to select a file
-            selected_file = st.selectbox("Select an Excel file to view:", list(excel_files.keys()))
-            if "confirm_delete" not in st.session_state:
-                st.session_state.confirm_delete = False
-                st.session_state.file_to_delete = None
-            
-            # Display the selected file's DataFrame
-            if selected_file:
-                # Create a header for the file
-                st.subheader(f"Contents of {selected_file}")
-
-                # Use a container to tightly group the buttons
-                with st.container():
-                    col1, col2 = st.columns([1, 1])  # Equal-sized columns for buttons
-                    with col1:
-                        excel_buffer = BytesIO()
-                        excel_files[selected_file].to_excel(excel_buffer, index=False, engine='openpyxl')
-                        excel_data = excel_buffer.getvalue()
-                        st.download_button(
-                        label="⬇️ Download",
-                        data=excel_data,
-                        file_name=selected_file,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                    with col2:
-                        if st.button("🗑️ Delete"):
-                            st.session_state.confirm_delete = True
-                            st.session_state.file_to_delete = "/var/data/" + selected_file
+            else:        
+                # Streamlit dropdown to select a file
+                selected_file = st.selectbox("Select an Excel file to view:", list(excel_files.keys()))
+                if "confirm_delete" not in st.session_state:
+                    st.session_state.confirm_delete = False
+                    st.session_state.file_to_delete = None
                 
-                # Confirmation Modal
-                if st.session_state.confirm_delete:
-                    st.warning(f"Are you sure you want to delete {selected_file}?")
-                    confirm_col1, confirm_col2 = st.columns([1, 1])
+                # Display the selected file's DataFrame
+                if selected_file:
+                    # Create a header for the file
+                    st.subheader(f"Contents of {selected_file}")
 
-                    with confirm_col1:
-                        if st.button("Yes, Delete"):
-                            if os.path.exists(st.session_state.file_to_delete):
-                                os.remove(st.session_state.file_to_delete)
-                                st.success(f"File {selected_file} has been deleted.")
+                    # Use a container to tightly group the buttons
+                    with st.container():
+                        col1, col2 = st.columns([1, 1])  # Equal-sized columns for buttons
+                        with col1:
+                            excel_buffer = BytesIO()
+                            excel_files[selected_file].to_excel(excel_buffer, index=False, engine='openpyxl')
+                            excel_data = excel_buffer.getvalue()
+                            st.download_button(
+                            label="⬇️ Download",
+                            data=excel_data,
+                            file_name=selected_file,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                        with col2:
+                            if st.button("🗑️ Delete"):
+                                st.session_state.confirm_delete = True
+                                st.session_state.file_to_delete = "/var/data/" + selected_file
+                    
+                    # Confirmation Modal
+                    if st.session_state.confirm_delete:
+                        st.warning(f"Are you sure you want to delete {selected_file}?")
+                        confirm_col1, confirm_col2 = st.columns([1, 1])
+
+                        with confirm_col1:
+                            if st.button("Yes, Delete"):
+                                if os.path.exists(st.session_state.file_to_delete):
+                                    os.remove(st.session_state.file_to_delete)
+                                    st.success(f"File {selected_file} has been deleted.")
+                                    st.session_state.confirm_delete = False
+                                    st.session_state.file_to_delete = None
+                                    st.rerun()
+
+                        with confirm_col2:
+                            if st.button("Cancel"):
                                 st.session_state.confirm_delete = False
                                 st.session_state.file_to_delete = None
-                                st.rerun()
-
-                    with confirm_col2:
-                        if st.button("Cancel"):
-                            st.session_state.confirm_delete = False
-                            st.session_state.file_to_delete = None
 
 
-                render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
+                    render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
 
+        except:
+            st.warning("No Excel files found in the specified folder.")
+        
 def increase_gpt_limit(user_id, number_key):
     if st.session_state[number_key] != st.session_state.gpt_limit_state[number_key]:
         st.session_state.gpt_limit_state[number_key] = st.session_state[number_key]
