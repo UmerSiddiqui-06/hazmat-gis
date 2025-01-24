@@ -1414,6 +1414,7 @@ def admin_panel():
                         new_data[columns_to_strip] = new_data[columns_to_strip].apply(lambda col: col.str.strip())
                         new_data['Category'] = new_data['Category'].str.title()
                         new_data['Impact'] = new_data['Impact'].str.title()
+                        new_data.loc[new_data['Impact'] == 'Environment', 'Impact'] = 'Environmental'
                         columns_to_clean = ["Type", "Category", "Impact", "Severity"]
                         for column in columns_to_clean:
                             if column in new_data.columns:
@@ -1422,7 +1423,7 @@ def admin_panel():
                         valid_type = {"Incident", "Activity"}
                         valid_category = {"Explosive", "Biological", "Radiological", "Chemical", "Nuclear"}
                         valid_impact = {"Infrastructure", "Human", "Environmental", "Economic", "Nuclear", "Animal"}
-                        valid_severity = {"Low", "Medium"}
+                        valid_severity = {"Low", "Medium", "High"}
 
                         # Function to check if any value in a comma-separated list is valid
                         def check_validity(value, valid_set):
