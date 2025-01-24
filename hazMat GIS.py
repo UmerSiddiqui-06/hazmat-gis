@@ -148,7 +148,8 @@ def preprocess_data(data):
         else:
             coords = row["Coordinates"]
         return pd.Series({"Coordinates": coords, "City": row["City"]})
-
+    if 'Coordinates' not in data.columns:
+        data['Coordinates'] = None  
     result = data.apply(geocode_and_correct, axis=1)
     data["Coordinates"] = result["Coordinates"]
     data["City"] = result["City"]
