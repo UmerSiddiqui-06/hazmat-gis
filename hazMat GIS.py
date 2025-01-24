@@ -1406,20 +1406,7 @@ def admin_panel():
                 if filename:
                     try:
                         new_data = pd.read_excel(new_data_file)
-                        new_data['Category'] = new_data['Category'].str.lower().str.capitalize()
-                        new_data['Type'] = new_data['Type'].str.lower().str.capitalize()
-                        new_data['Severity'] = new_data['Severity'].str.lower().str.capitalize()
-                        new_data['Impact'] = new_data['Impact'].str.lower().str.capitalize()
-                        columns_to_strip = ["Type", "Category", "Impact", "Severity"]
-                        new_data[columns_to_strip] = new_data[columns_to_strip].apply(lambda col: col.str.strip())
-                        new_data['Category'] = new_data['Category'].str.title()
-                        new_data['Impact'] = new_data['Impact'].str.title()
-                        new_data.loc[new_data['Impact'] == 'Environment', 'Impact'] = 'Environmental'
-                        columns_to_clean = ["Type", "Category", "Impact", "Severity"]
-                        for column in columns_to_clean:
-                            if column in new_data.columns:
-                                new_data[column] = new_data[column].str.strip()
-                        
+
                         valid_type = {"Incident", "Activity"}
                         valid_category = {"Explosive", "Biological", "Radiological", "Chemical", "Nuclear"}
                         valid_impact = {"Infrastructure", "Human", "Environmental", "Economic", "Nuclear", "Animal"}
@@ -1428,7 +1415,7 @@ def admin_panel():
                         # Function to check if any value in a comma-separated list is valid
                         def check_validity(value, valid_set):
                             # Split the value by commas, strip whitespace, and check if any part is in the valid set
-                            values = {item.strip() for item in value.split(',')}
+                            values = {item.strip().title() for item in value.split(',')}
                             return values.issubset(valid_set)
 
                         # Apply the validity checks
@@ -1464,7 +1451,15 @@ def admin_panel():
                         new_data = new_data[conditions].drop(
                             columns=["Type_Valid", "Category_Valid", "Impact_Valid", "Severity_Valid"]
                         )
-                        
+                        new_data['Type'] = new_data['Type'].str.title()
+                        new_data['Severity'] = new_data['Severity'].str.title()
+                        new_data['Category'] = new_data['Category'].str.title()
+                        new_data['Impact'] = new_data['Impact'].str.title()
+                        new_data.loc[new_data['Impact'] == 'Environment', 'Impact'] = 'Environmental'
+                        columns_to_clean = ["Type", "Category", "Impact", "Severity"]
+                        for column in columns_to_clean:
+                            if column in new_data.columns:
+                                new_data[column] = new_data[column].str.strip()
                         filename = filename + ".xlsx"
                         new_data.to_excel(f"/var/data/{filename}", index=False)
                         st.success("Data concatenated successfully")
