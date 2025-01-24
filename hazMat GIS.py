@@ -1962,9 +1962,12 @@ def main_display(user_type, user_email):
         final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
         # final_df.to_excel("data/First File.xlsx", index=False)
         final_df['Category'] = final_df['Category'].str.split(',')
-        df_exploded = final_df.explode('Category', ignore_index=True)
-        df_exploded['Category'] = df_exploded['Category'].str.strip()
-        data = preprocess_data(df_exploded)
+        final_df = final_df.explode('Category', ignore_index=True)
+        final_df['Category'] = final_df['Category'].str.strip()
+        final_df['Impact'] = final_df['Impact'].str.split(',')
+        final_df = final_df.explode('Impact', ignore_index=True)
+        final_df['Impact'] = final_df['Impact'].str.strip()
+        data = preprocess_data(final_df)
 
         search_term = st.text_input("Search incidents", "")
 
