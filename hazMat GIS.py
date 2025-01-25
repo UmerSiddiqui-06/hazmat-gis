@@ -881,7 +881,7 @@ def admin_panel():
                 update_mode="MODEL_CHANGED",
                 height=400,
                 fit_columns_on_grid_load=True,
-                theme="material",
+                theme="streamlit"
             )
 
             selected_rows = grid_response.get("selected_rows", [])
