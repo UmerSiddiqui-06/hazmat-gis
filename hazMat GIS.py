@@ -50,9 +50,9 @@ def load_data():
         dataframes = []
         
         # Iterate over all files in the folder
-        for file_name in os.listdir("/var/data"):
+        for file_name in os.listdir("var/data"):
             # Build the full file path
-            file_path = os.path.join("/var/data", file_name)
+            file_path = os.path.join("var/data", file_name)
             
             # Check if the file is an Excel file
             if file_name.endswith(('.xlsx', '.xls')):
@@ -875,15 +875,13 @@ def admin_panel():
             # gb.configure_column("ChatGPT Usage Limit", tooltipField="ChatGPT Usage Limit")
             # gb.configure_column("Stopped Since", tooltipField="Stopped Since")
             gridOptions = gb.build()
-
             grid_response = AgGrid(
                 filtered_df,
                 gridOptions=gridOptions,
-                enable_enterprise_modules=True,
                 update_mode="MODEL_CHANGED",
                 height=400,
                 fit_columns_on_grid_load=True,
-                theme="streamlit",
+                theme="material",
             )
 
             selected_rows = grid_response.get("selected_rows", [])
@@ -1062,7 +1060,6 @@ def admin_panel():
         grid_response = AgGrid(
             df,
             gridOptions=gridOptions,
-            enable_enterprise_modules=True,
             update_mode="MODEL_CHANGED",
             height=400,  # Set a fixed height for vertical scrolling
             fit_columns_on_grid_load=True,  # Disable auto-fit on initial load
@@ -1280,7 +1277,6 @@ def admin_panel():
         grid_response = AgGrid(
             filtered_df,
             gridOptions=grid_options,
-            enable_enterprise_modules=True,
             update_mode="MODEL_CHANGED",
             height=400,
             fit_columns_on_grid_load=True,
@@ -1288,37 +1284,64 @@ def admin_panel():
             allow_unsafe_jscode=True,
         )
         modal = Modal(key="example_modal", title="Link Details")
+        @st.dialog("Response Modal", width="large")
+        def show_full_screen_modal(row_data):
+            link = row_data["Link"]
+            st.markdown(f'''
+                    <a href="{link}" target="_blank" style="
+                        text-decoration: none;
+                        padding: 8px 15px;
+                        background-color: #0e1117;  /* Blue background color */
+                        color: white;
+                        border-radius: 7px;
+                        text-align: center;
+                        display: inline-block;
+                        border: 7px solid black;  /* Black border */
+                    ">
+                        Open Link
+                    </a>
+                ''', unsafe_allow_html=True)
+            response = conn.get_gpt_response(row_data["Link"])
+                
+            word_file = create_word_file(response)
+            st.download_button(
+                    label="Download Response",
+                    data=word_file,  # File content as a BytesIO object
+                    file_name="response.docx",  # File name with .docx extension
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
+                )
+            st.write("Summary Response:", response) 
         selected_row = grid_response.get("selected_rows", [])
         if selected_row is not None:
             row_data = selected_row.iloc[0]  # Access the first selected row
             if st.button("Show Details"):
-                
-                with modal.container():  # Use st.container() for a scoped layout
-                    link = row_data["Link"]
-                    st.markdown(f'''
-                        <a href="{link}" target="_blank" style="
-                            text-decoration: none;
-                            padding: 8px 15px;
-                            background-color: #0e1117;  /* Blue background color */
-                            color: white;
-                            border-radius: 7px;
-                            text-align: center;
-                            display: inline-block;
-                            border: 7px solid black;  /* Black border */
-                        ">
-                            Open Link
-                        </a>
-                    ''', unsafe_allow_html=True)
-                    response = conn.get_gpt_response(row_data["Link"])
+                show_full_screen_modal(row_data)
+                # with modal.container():  # Use st.container() for a scoped layout
+                #     link = row_data["Link"]
+                #     st.markdown(f'''
+                #         <a href="{link}" target="_blank" style="
+                #             text-decoration: none;
+                #             padding: 8px 15px;
+                #             background-color: #0e1117;  /* Blue background color */
+                #             color: white;
+                #             border-radius: 7px;
+                #             text-align: center;
+                #             display: inline-block;
+                #             border: 7px solid black;  /* Black border */
+                #         ">
+                #             Open Link
+                #         </a>
+                #     ''', unsafe_allow_html=True)
+                #     response = conn.get_gpt_response(row_data["Link"])
                     
-                    word_file = create_word_file(response)
-                    st.download_button(
-                        label="Download Response",
-                        data=word_file,  # File content as a BytesIO object
-                        file_name="response.docx",  # File name with .docx extension
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
-                    )
-                    st.write("Summary Response:", response)  
+                #     word_file = create_word_file(response)
+                #     st.download_button(
+                #         label="Download Response",
+                #         data=word_file,  # File content as a BytesIO object
+                #         file_name="response.docx",  # File name with .docx extension
+                #         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
+                #     )
+                #     st.write("Summary Response:", response)  
 
         try:
             grid_selected_emails = [email for email in selected_rows["Email"]]
@@ -1372,11 +1395,10 @@ def admin_panel():
         grid_response = AgGrid(
             filtered_df,
             gridOptions=grid_options,
-            enable_enterprise_modules=True,
             update_mode="MODEL_CHANGED",
             height=400,
             fit_columns_on_grid_load=True,
-            theme="streamlit",
+            theme="material",
         )
 
         selected_rows = grid_response.get("selected_rows", [])
@@ -1461,7 +1483,7 @@ def admin_panel():
                             if column in new_data.columns:
                                 new_data[column] = new_data[column].str.strip()
                         filename = filename + ".xlsx"
-                        new_data.to_excel(f"/var/data/{filename}", index=False)
+                        new_data.to_excel(f"var/data/{filename}", index=False)
                         st.success("Data concatenated successfully")
 
                         # Provide download button for rejected rows
@@ -1485,9 +1507,9 @@ def admin_panel():
 
         excel_files = {}
         try:
-            for file_name in os.listdir("/var/data"):
+            for file_name in os.listdir("var/data"):
                 if file_name.endswith(('.xlsx', '.xls')):
-                    file_path = os.path.join("/var/data", file_name)
+                    file_path = os.path.join("var/data", file_name)
                     excel_files[file_name] = pd.read_excel(file_path)
             
             if not excel_files:
@@ -1520,7 +1542,7 @@ def admin_panel():
                         with col2:
                             if st.button("🗑️ Delete"):
                                 st.session_state.confirm_delete = True
-                                st.session_state.file_to_delete = "/var/data/" + selected_file
+                                st.session_state.file_to_delete = "var/data/" + selected_file
                     def confirm_delete():
                         if os.path.exists(st.session_state.file_to_delete):
                             os.remove(st.session_state.file_to_delete)
@@ -2222,7 +2244,11 @@ def main_display(user_type, user_email):
                 on_click=add_download_history,
                 args=[filters],
             )
-
+            @st.dialog("data_tab", width="large")
+            def show_full_screen_modal(df_display,user_type,user_email):
+                render_aggrid_data(df_display, user_type,user_email)
+            if st.button("Maximize"):
+                show_full_screen_modal(df_display,user_type,user_email)
             with st.container():
                 selected_row = render_aggrid_data(df_display, user_type,user_email)
             #     st.write("Selected Row:",selected_row)
