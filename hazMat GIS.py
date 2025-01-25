@@ -1387,7 +1387,7 @@ def admin_panel():
 
         gb = GridOptionsBuilder.from_dataframe(filtered_df)
         gb.configure_default_column(
-            editable=False, groupable=True
+            editable=False, groupable=True,flex=1
         )  # Default column settings
         gb.configure_selection(selection_mode="multiple")
         grid_options = gb.build()
@@ -1398,7 +1398,7 @@ def admin_panel():
             update_mode="MODEL_CHANGED",
             height=400,
             fit_columns_on_grid_load=True,
-            theme="material",
+            theme="streamlit",
         )
 
         selected_rows = grid_response.get("selected_rows", [])
