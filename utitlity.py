@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 
 class sqlpy:
     def __init__(self):
-        self.conn = sqlite3.connect('my_database.db',check_same_thread=False)
+        self.conn = sqlite3.connect('/var/data/my_database.db',check_same_thread=False)
         self.cursor = self.conn.cursor()
 
         # Create the users table
