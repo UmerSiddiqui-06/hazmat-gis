@@ -50,9 +50,9 @@ def load_data():
         dataframes = []
         
         # Iterate over all files in the folder
-        for file_name in os.listdir("var/data"):
+        for file_name in os.listdir("/var/data"):
             # Build the full file path
-            file_path = os.path.join("var/data", file_name)
+            file_path = os.path.join("/var/data", file_name)
             
             # Check if the file is an Excel file
             if file_name.endswith(('.xlsx', '.xls')):
@@ -1483,7 +1483,7 @@ def admin_panel():
                             if column in new_data.columns:
                                 new_data[column] = new_data[column].str.strip()
                         filename = filename + ".xlsx"
-                        new_data.to_excel(f"var/data/{filename}", index=False)
+                        new_data.to_excel(f"/var/data/{filename}", index=False)
                         st.success("Data concatenated successfully")
 
                         # Provide download button for rejected rows
@@ -1507,9 +1507,9 @@ def admin_panel():
 
         excel_files = {}
         try:
-            for file_name in os.listdir("var/data"):
+            for file_name in os.listdir("/var/data"):
                 if file_name.endswith(('.xlsx', '.xls')):
-                    file_path = os.path.join("var/data", file_name)
+                    file_path = os.path.join("/var/data", file_name)
                     excel_files[file_name] = pd.read_excel(file_path)
             
             if not excel_files:
@@ -1542,7 +1542,7 @@ def admin_panel():
                         with col2:
                             if st.button("🗑️ Delete"):
                                 st.session_state.confirm_delete = True
-                                st.session_state.file_to_delete = "var/data/" + selected_file
+                                st.session_state.file_to_delete = "/var/data/" + selected_file
                     def confirm_delete():
                         if os.path.exists(st.session_state.file_to_delete):
                             os.remove(st.session_state.file_to_delete)
