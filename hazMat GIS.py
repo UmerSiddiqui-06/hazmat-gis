@@ -2247,8 +2247,8 @@ def main_display(user_type, user_email):
             @st.dialog("data_tab", width="large")
             def show_full_screen_modal(df_display,user_type,user_email):
                 render_aggrid_data(df_display, user_type,user_email)
-            if st.button("Maximize"):
-                show_full_screen_modal(df_display,user_type,user_email)
+            # if st.button("Maximize"):
+            #     show_full_screen_modal(df_display,user_type,user_email)
             with st.container():
                 selected_row = render_aggrid_data(df_display, user_type,user_email)
             #     st.write("Selected Row:",selected_row)
