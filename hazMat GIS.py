@@ -778,12 +778,14 @@ def admin_panel():
 
     with st.sidebar:
         # Go Back Button
-        if st.button("Go Back"):
+        def go_back():
             st.session_state.page = "main_display"
             cookies["page"] = "main_display"
             cookies["selected_tab"] = "login_history"
             cookies.save()
-            st.rerun()
+            # st.rerun()
+        st.button("Go Back",on_click=go_back)
+            
 
         # Header for ChatGPT Settings
         st.sidebar.header("ChatGPT Settings")
@@ -1284,7 +1286,7 @@ def admin_panel():
             allow_unsafe_jscode=True,
         )
         modal = Modal(key="example_modal", title="Link Details")
-        @st.dialog("Response Modal", width="large")
+        @st.dialog("Response", width="large")
         def show_full_screen_modal(row_data):
             link = row_data["Link"]
             st.markdown(f'''
@@ -1689,7 +1691,7 @@ def render_aggrid_data(df_display, user_type,user_email):
         gridOptions=grid_options,
         updateMode=GridUpdateMode.MODEL_CHANGED,
         allow_unsafe_jscode=True,
-        height=400,
+        height=800,
         theme="streamlit",
         fit_columns_on_grid_load=True,
     )
@@ -1989,6 +1991,7 @@ def main_display(user_type, user_email):
         final_df['Impact'] = final_df['Impact'].str.split(',')
         final_df = final_df.explode('Impact', ignore_index=True)
         final_df['Impact'] = final_df['Impact'].str.strip()
+        final_df = final_df.drop_duplicates()
         data = preprocess_data(final_df)
 
         search_term = st.text_input("Search incidents", "")
@@ -2236,19 +2239,22 @@ def main_display(user_type, user_email):
                 severity_filter,
                 date_filter,
             ]
-            st.download_button(
-                label="Download Data",
-                data=csv,
-                file_name="filtered_data.csv",
-                mime="text/csv",
-                on_click=add_download_history,
-                args=[filters],
-            )
-            @st.dialog("data_tab", width="large")
-            def show_full_screen_modal(df_display,user_type,user_email):
-                render_aggrid_data(df_display, user_type,user_email)
-            # if st.button("Maximize"):
-            #     show_full_screen_modal(df_display,user_type,user_email)
+            data_tab_cols = st.columns((8.6,1.4))
+            with data_tab_cols[0]:
+                st.download_button(
+                    label="Download Data",
+                    data=csv,
+                    file_name="filtered_data.csv",
+                    mime="text/csv",
+                    on_click=add_download_history,
+                    args=[filters],
+                )
+            # @st.dialog("Data", width="large")
+            # def show_full_screen_modal(df_display):
+            #     st.dataframe(df_display)
+            # with data_tab_cols[1]:
+            #     if st.button("Maximize"):
+            #         show_full_screen_modal(df_display)
             with st.container():
                 selected_row = render_aggrid_data(df_display, user_type,user_email)
             #     st.write("Selected Row:",selected_row)
