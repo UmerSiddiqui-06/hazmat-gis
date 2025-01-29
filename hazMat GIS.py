@@ -1691,7 +1691,7 @@ def render_aggrid_data(df_display, user_type,user_email):
         gridOptions=grid_options,
         updateMode=GridUpdateMode.MODEL_CHANGED,
         allow_unsafe_jscode=True,
-        height=800,
+        height=400,
         theme="streamlit",
         fit_columns_on_grid_load=True,
     )
