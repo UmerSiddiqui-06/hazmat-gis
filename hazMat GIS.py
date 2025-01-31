@@ -67,8 +67,8 @@ def load_data():
         data['Country'] = standardize_country_column(data['Country'])
         data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
         data = data.drop_duplicates()
-    except:
-        st.error("Error Occured while loading Data")
+    except Exception as e:
+        st.error("Error Occured while loading Data: {e}")
         st.stop()
     return data
 
