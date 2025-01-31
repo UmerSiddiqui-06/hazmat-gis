@@ -1758,11 +1758,11 @@ def render_aggrid_data(df_display, user_type, user_email):
             cookies["summarize"] = "False"
 
         if cookies.get("summarize") == "True":
-            if selected_row:
+            if selected_row is not None:
                 with st.container():
                     st.subheader("Summary")
-                    url = selected_row[0]["Full Link"]
-                    title = selected_row[0]["Title"]
+                    url = selected_row["Full Link"][0]
+                    title = selected_row["Title"][0]
 
                     # Placeholder for loader
                     loader_placeholder = st.empty()
