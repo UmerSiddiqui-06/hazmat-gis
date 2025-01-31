@@ -67,6 +67,7 @@ def load_data():
         data = pd.concat(dataframes, ignore_index=True)
         data["Date"] = pd.to_datetime(data["Date"])
         data['Country'] = standardize_country_column(data['Country'])
+        data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
         data = data.drop_duplicates()
     except Exception as e:
         st.error(f"Error Occured while loading Data: {e}")
@@ -1522,7 +1523,6 @@ def admin_panel():
                         final_df['Impact'] = final_df['Impact'].str.strip()
                         final_df = final_df.drop_duplicates()
                         new_data = preprocess_data(final_df)
-                        new_data["Coordinates"] = new_data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
                         new_data.to_excel(f"/var/data/{filename}", index=False)
                         st.success("Data concatenated successfully")
                         # Provide download button for rejected rows
