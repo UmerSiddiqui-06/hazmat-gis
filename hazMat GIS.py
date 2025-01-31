@@ -60,7 +60,8 @@ def load_data():
                 # Read the Excel file into a DataFrame and append to the list
                 df = pd.read_excel(file_path)
                 dataframes.append(df)
-        
+        if len(dataframes) == 0:
+            return None
         # Concatenate all DataFrames into a single DataFrame
         data = pd.concat(dataframes, ignore_index=True)
         data["Date"] = pd.to_datetime(data["Date"])
