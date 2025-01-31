@@ -46,8 +46,7 @@ warnings.filterwarnings("ignore")
 # Connection with database
 conn = utitlity.sqlpy()
 
-@st.cache_data
-def load_data(is_modified):
+def load_data():
     try:
         dataframes = []
         
@@ -1524,7 +1523,6 @@ def admin_panel():
                         final_df = final_df.drop_duplicates()
                         new_data = preprocess_data(final_df)
                         new_data.to_excel(f"/var/data/{filename}", index=False)
-                        st.session_state.data_modified = not st.session_state.data_modified
                         st.success("Data concatenated successfully") 
                         # Provide download button for rejected rows
                         dcol,icol = st.columns(2)
@@ -1589,7 +1587,6 @@ def admin_panel():
                             st.success(f"File {selected_file} has been deleted.")
                             st.session_state.confirm_delete = False
                             st.session_state.file_to_delete = None
-                            st.session_state.data_modified = not st.session_state.data_modified
                     def cancel_delete():
                         st.session_state.confirm_delete = False
                         st.session_state.file_to_delete = None
@@ -1756,94 +1753,56 @@ def render_aggrid_data(df_display, user_type, user_email):
         gpt_limit_check = get_gpt_limit_check_from_conn(user_email)
     
     if chatgpt_status and (user_type == "admin" or (user_gpt_status and gpt_limit_check)):
-        # if "summarize" not in st.session_state:
-        #     st.session_state.summarize = None
-        #     cookies["summarize"] = "False"
+        if "summarize" not in st.session_state:
+            st.session_state.summarize = None
+            cookies["summarize"] = "False"
 
-        # if cookies.get("summarize") == "True":
-        #     if selected_row:
-        #         with st.container():
-        #             st.subheader("Summary")
-        #             url = selected_row[0]["Full Link"]
-        #             title = selected_row[0]["Title"]
+        if cookies.get("summarize") == "True":
+            if selected_row:
+                with st.container():
+                    st.subheader("Summary")
+                    url = selected_row[0]["Full Link"]
+                    title = selected_row[0]["Title"]
 
-        #             # Placeholder for loader
-        #             loader_placeholder = st.empty()
+                    # Placeholder for loader
+                    loader_placeholder = st.empty()
 
-        #             with loader_placeholder:
-        #                 # Display loading spinner
-        #                 with st.spinner("Generating response, please wait..."):
-        #                     response = conn.get_gpt_response(url)
+                    with loader_placeholder:
+                        # Display loading spinner
+                        with st.spinner("Generating response, please wait..."):
+                            response = conn.get_gpt_response(url)
                             
-        #                     if not response:
-        #                         if cookies.get(title) is not None:
-        #                             response = cookies.get(title)
-        #                         else:
-        #                             prompt = f"URL: {url} Title: {title} "
-        #                             with open("prompt.txt", "r") as file:
-        #                                 content = file.read()
-        #                             prompt = prompt + content
-        #                             response = chatgpt_explain(prompt)
-        #                             cookies[title] = response
-        #                             conn.add_gpt_response(url, response)
+                            if not response:
+                                if cookies.get(title) is not None:
+                                    response = cookies.get(title)
+                                else:
+                                    prompt = f"URL: {url} Title: {title} "
+                                    with open("prompt.txt", "r") as file:
+                                        content = file.read()
+                                    prompt = prompt + content
+                                    response = chatgpt_explain(prompt)
+                                    cookies[title] = response
+                                    conn.add_gpt_response(url, response)
 
-        #                     if user_type != "admin":
-        #                         conn.increase_gpt(user_email)
-        #                         conn.add_gpt_history(user_email, url, title)
+                            if user_type != "admin":
+                                conn.increase_gpt(user_email)
+                                conn.add_gpt_history(user_email, url, title)
                         
-        #             # Clear loader and display response
-        #             loader_placeholder.empty()
-        #             word_file = create_word_file(response)
-        #             st.download_button(
-        #                 label="Download Response",
-        #                 data=word_file,  # File content as a BytesIO object
-        #                 file_name="response.docx",  # File name with .docx extension
-        #                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
-        #             )
-        #             st.write(response)
+                    # Clear loader and display response
+                    loader_placeholder.empty()
+                    word_file = create_word_file(response)
+                    st.download_button(
+                        label="Download Response",
+                        data=word_file,  # File content as a BytesIO object
+                        file_name="response.docx",  # File name with .docx extension
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
+                    )
+                    st.write(response)
 
-        #         cookies["summarize"] = "False"
-        # else:
-        if selected_row is not None and st.button("Summarize"):
-            with st.container():
-                st.subheader("Summary")
-                url = selected_row[0]["Full Link"]
-                title = selected_row[0]["Title"]
-
-                # Placeholder for loader
-                loader_placeholder = st.empty()
-
-                with loader_placeholder:
-                    # Display loading spinner
-                    with st.spinner("Generating response, please wait..."):
-                        response = conn.get_gpt_response(url)
-                        
-                        if not response:
-                            if cookies.get(title) is not None:
-                                response = cookies.get(title)
-                            else:
-                                prompt = f"URL: {url} Title: {title} "
-                                with open("prompt.txt", "r") as file:
-                                    content = file.read()
-                                prompt = prompt + content
-                                response = chatgpt_explain(prompt)
-                                cookies[title] = response
-                                conn.add_gpt_response(url, response)
-
-                        if user_type != "admin":
-                            conn.increase_gpt(user_email)
-                            conn.add_gpt_history(user_email, url, title)
-                    
-                # Clear loader and display response
-                loader_placeholder.empty()
-                word_file = create_word_file(response)
-                st.download_button(
-                    label="Download Response",
-                    data=word_file,  # File content as a BytesIO object
-                    file_name="response.docx",  # File name with .docx extension
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # MIME type for Word files
-                )
-                st.write(response)
+                cookies["summarize"] = "False"
+        else:
+            if selected_row is not None:
+                st.button("Summarize",on_click=summarize)
 
 
 def render_aggrid(df_display, user_type,filename="temp"):
@@ -2048,7 +2007,7 @@ def main_display(user_type, user_email):
     st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
 
     # Perform conditional rendering based on the updated state
-    data = load_data(st.session_state.data_modified)
+    data = load_data()
     if data is not None:
         world = load_world()
         # split_rows = data.dropna(subset=["Country", "City"])
@@ -2499,8 +2458,7 @@ def main():
         st.session_state.selected_tab = None
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
-    if "data_modified" not in st.session_state:
-        st.session_state.data_modified = True
+
     if st.session_state.page == "Forget_Password":
         forget_password()
 
