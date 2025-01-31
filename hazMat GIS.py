@@ -29,6 +29,7 @@ from streamlit_modal import Modal
 import os
 from docx import Document
 from io import BytesIO
+import ast
 
 st.set_page_config(page_title="HazMat GIS",page_icon="logo1.png")
 
@@ -64,8 +65,11 @@ def load_data():
         data = pd.concat(dataframes, ignore_index=True)
         data["Date"] = pd.to_datetime(data["Date"])
         data['Country'] = standardize_country_column(data['Country'])
+        data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
+        data = data.drop_duplicates()
     except:
-        data = None
+        st.error("Error Occured while loading Data")
+        st.stop()
     return data
 
 def load_country_list(file_path):
@@ -1485,9 +1489,41 @@ def admin_panel():
                             if column in new_data.columns:
                                 new_data[column] = new_data[column].str.strip()
                         filename = filename + ".xlsx"
+                        split_rows = new_data.dropna(subset=["Country", "City"])
+                        processed_split = (
+                            split_rows.assign(
+                                country_city=split_rows.apply(
+                                    lambda row: list(zip(row["Country"].split(", "), row["City"].split(", "))),
+                                    axis=1,
+                                )
+                            )
+                            .explode("country_city")
+                            .assign(
+                                Country=lambda df: df["country_city"].str[0],
+                                City=lambda df: df["country_city"].str[1],
+                            )
+                            .drop(columns=["country_city"])  # Drop intermediate column
+                            .reset_index(drop=True)  # Reset index for clarity
+                        )
+
+                        # Append rows with missing values back to the processed DataFrame
+                        missing_rows = new_data[new_data[["Country", "City"]].isnull().any(axis=1)]
+                        final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
+                        final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
+                        final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
+                        final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
+                        final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
+                        # final_df.to_excel("data/First File.xlsx", index=False)
+                        final_df['Category'] = final_df['Category'].str.split(',')
+                        final_df = final_df.explode('Category', ignore_index=True)
+                        final_df['Category'] = final_df['Category'].str.strip()
+                        final_df['Impact'] = final_df['Impact'].str.split(',')
+                        final_df = final_df.explode('Impact', ignore_index=True)
+                        final_df['Impact'] = final_df['Impact'].str.strip()
+                        final_df = final_df.drop_duplicates()
+                        new_data = preprocess_data(final_df)
                         new_data.to_excel(f"/var/data/{filename}", index=False)
                         st.success("Data concatenated successfully")
-
                         # Provide download button for rejected rows
                         dcol,icol = st.columns(2)
                         with dcol:
@@ -1551,11 +1587,9 @@ def admin_panel():
                             st.success(f"File {selected_file} has been deleted.")
                             st.session_state.confirm_delete = False
                             st.session_state.file_to_delete = None
-                            st.rerun()
                     def cancel_delete():
                         st.session_state.confirm_delete = False
                         st.session_state.file_to_delete = None
-                        st.rerun()
                     # Confirmation Modal
                     if st.session_state.confirm_delete:
                         st.warning(f"Are you sure you want to delete {selected_file}?")
@@ -1960,39 +1994,39 @@ def main_display(user_type, user_email):
     data = load_data()
     if data is not None:
         world = load_world()
-        split_rows = data.dropna(subset=["Country", "City"])
-        processed_split = (
-            split_rows.assign(
-                country_city=split_rows.apply(
-                    lambda row: list(zip(row["Country"].split(", "), row["City"].split(", "))),
-                    axis=1,
-                )
-            )
-            .explode("country_city")
-            .assign(
-                Country=lambda df: df["country_city"].str[0],
-                City=lambda df: df["country_city"].str[1],
-            )
-            .drop(columns=["country_city"])  # Drop intermediate column
-            .reset_index(drop=True)  # Reset index for clarity
-        )
+        # split_rows = data.dropna(subset=["Country", "City"])
+        # processed_split = (
+        #     split_rows.assign(
+        #         country_city=split_rows.apply(
+        #             lambda row: list(zip(row["Country"].split(", "), row["City"].split(", "))),
+        #             axis=1,
+        #         )
+        #     )
+        #     .explode("country_city")
+        #     .assign(
+        #         Country=lambda df: df["country_city"].str[0],
+        #         City=lambda df: df["country_city"].str[1],
+        #     )
+        #     .drop(columns=["country_city"])  # Drop intermediate column
+        #     .reset_index(drop=True)  # Reset index for clarity
+        # )
 
-        # Append rows with missing values back to the processed DataFrame
-        missing_rows = data[data[["Country", "City"]].isnull().any(axis=1)]
-        final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
-        final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
-        final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
-        final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
-        final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
-        # final_df.to_excel("data/First File.xlsx", index=False)
-        final_df['Category'] = final_df['Category'].str.split(',')
-        final_df = final_df.explode('Category', ignore_index=True)
-        final_df['Category'] = final_df['Category'].str.strip()
-        final_df['Impact'] = final_df['Impact'].str.split(',')
-        final_df = final_df.explode('Impact', ignore_index=True)
-        final_df['Impact'] = final_df['Impact'].str.strip()
-        final_df = final_df.drop_duplicates()
-        data = preprocess_data(final_df)
+        # # Append rows with missing values back to the processed DataFrame
+        # missing_rows = data[data[["Country", "City"]].isnull().any(axis=1)]
+        # final_df = pd.concat([processed_split, missing_rows], ignore_index=True)
+        # final_df["City"] = final_df["City"].fillna("Unknown")  # Replace NaN with a default value
+        # final_df["City"] = final_df["City"].astype(str)        # Ensure all values are strings
+        # final_df["Country"] = final_df["Country"].fillna("Unknown")  # Replace NaN with a default value
+        # final_df["Country"] = final_df["Country"].astype(str)        # Ensure all values are strings
+        # # final_df.to_excel("data/First File.xlsx", index=False)
+        # final_df['Category'] = final_df['Category'].str.split(',')
+        # final_df = final_df.explode('Category', ignore_index=True)
+        # final_df['Category'] = final_df['Category'].str.strip()
+        # final_df['Impact'] = final_df['Impact'].str.split(',')
+        # final_df = final_df.explode('Impact', ignore_index=True)
+        # final_df['Impact'] = final_df['Impact'].str.strip()
+        # final_df = final_df.drop_duplicates()
+        # data = preprocess_data(final_df)
 
         search_term = st.text_input("Search incidents", "")
 
