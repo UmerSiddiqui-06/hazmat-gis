@@ -68,7 +68,7 @@ def load_data():
         data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
         data = data.drop_duplicates()
     except Exception as e:
-        st.error("Error Occured while loading Data: {e}")
+        st.error(f"Error Occured while loading Data: {e}")
         st.stop()
     return data
 
