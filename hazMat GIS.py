@@ -47,7 +47,7 @@ warnings.filterwarnings("ignore")
 conn = utitlity.sqlpy()
 
 @st.cache_data
-def load_data():
+def load_data(is_modified):
     try:
         dataframes = []
         
