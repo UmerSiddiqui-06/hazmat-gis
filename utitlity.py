@@ -2,10 +2,15 @@ import sqlite3
 from datetime import datetime,timedelta
 import bcrypt
 from dateutil.relativedelta import relativedelta
+import streamlit as st
 
 class sqlpy:
     def __init__(self):
-        self.conn = sqlite3.connect('/var/data/my_database.db',check_same_thread=False)
+        try:
+            self.conn = sqlite3.connect('/var/data/my_database.db',check_same_thread=False)
+        except:
+            st.error("Unable to load Database")
+            return
         self.cursor = self.conn.cursor()
 
         # Create the users table
