@@ -46,8 +46,7 @@ warnings.filterwarnings("ignore")
 # Connection with database
 conn = utitlity.sqlpy()
 
-@st.cache_data
-def load_data(is_modified):
+def load_data():
     try:
         dataframes = []
         
@@ -1524,7 +1523,7 @@ def admin_panel():
                         final_df = final_df.drop_duplicates()
                         new_data = preprocess_data(final_df)
                         new_data.to_excel(f"/var/data/{filename}", index=False)
-                        st.session_state.data_modified = not st.session_state.data_modified
+                        st.session_state.data = load_data()
                         st.success("Data concatenated successfully") 
                         # Provide download button for rejected rows
                         dcol,icol = st.columns(2)
@@ -1993,7 +1992,7 @@ def main_display(user_type, user_email):
     st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
 
     # Perform conditional rendering based on the updated state
-    data = load_data(st.session_state.data_modified)
+    data = st.session_state.data
     if data is not None:
         world = load_world()
         # split_rows = data.dropna(subset=["Country", "City"])
@@ -2444,8 +2443,8 @@ def main():
         st.session_state.selected_tab = None
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
-    if "data_modified" not in st.session_state:
-        st.session_state.data_modified = True
+    if "data" not in st.session_state:
+        st.session_state.data = load_data()
     if st.session_state.page == "Forget_Password":
         forget_password()
 
