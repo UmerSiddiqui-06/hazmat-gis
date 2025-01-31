@@ -69,7 +69,6 @@ def load_data(is_modified):
         data['Country'] = standardize_country_column(data['Country'])
         data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
         data = data.drop_duplicates()
-        st.session_state.data_modified = not st.session_state.data_modified
     except Exception as e:
         st.error(f"Error Occured while loading Data: {e}")
         st.stop()
