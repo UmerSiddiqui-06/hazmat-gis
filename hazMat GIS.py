@@ -266,7 +266,7 @@ def filter_data(
 
 from folium.plugins import MarkerCluster
 
-
+@st.cache_data
 def create_folium_map(filtered_data, world, selected_categories=None):
     m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
     temp_df = filtered_data.copy()
@@ -330,7 +330,7 @@ def create_folium_map(filtered_data, world, selected_categories=None):
 
     return m
 
-
+@st.cache_data
 def create_heatmap(heat_data):
     heatmap = folium.Map(location=[0, 0], zoom_start=2, tiles=None, max_bounds=True)
 
