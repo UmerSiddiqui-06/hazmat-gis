@@ -1759,7 +1759,7 @@ def render_aggrid_data(df_display, user_type, user_email):
 
         if cookies.get("summarize") == "True":
             if selected_row is not None:
-                with st.container():
+                with st.container(border=True):
                     st.subheader("Summary")
                     url = selected_row["Full Link"][0]
                     title = selected_row["Title"][0]
