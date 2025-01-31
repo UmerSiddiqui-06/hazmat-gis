@@ -1805,7 +1805,7 @@ def render_aggrid_data(df_display, user_type, user_email):
 
                 cookies["summarize"] = "False"
         else:
-            if selected_row:
+            if selected_row is not None:
                 st.button("Summarize", on_click=summarize)
 
 def render_aggrid(df_display, user_type,filename="temp"):
