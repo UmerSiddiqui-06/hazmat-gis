@@ -46,6 +46,7 @@ warnings.filterwarnings("ignore")
 # Connection with database
 conn = utitlity.sqlpy()
 
+@st.cache_data
 def load_data():
     try:
         dataframes = []
