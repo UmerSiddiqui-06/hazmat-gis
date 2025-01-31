@@ -67,7 +67,6 @@ def load_data():
         data = pd.concat(dataframes, ignore_index=True)
         data["Date"] = pd.to_datetime(data["Date"])
         data['Country'] = standardize_country_column(data['Country'])
-        data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
         data = data.drop_duplicates()
     except Exception as e:
         st.error(f"Error Occured while loading Data: {e}")
@@ -80,6 +79,7 @@ def load_country_list(file_path):
         countries = [line.strip() for line in file.readlines()]
     return countries
 
+@st.cache_data
 def standardize_country_column(column):
     country_list = load_country_list("worldcountries.txt")
     country_variations = {
@@ -266,7 +266,6 @@ def filter_data(
 
 from folium.plugins import MarkerCluster
 
-@st.cache_data
 def create_folium_map(filtered_data, world, selected_categories=None):
     m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
     temp_df = filtered_data.copy()
@@ -330,7 +329,6 @@ def create_folium_map(filtered_data, world, selected_categories=None):
 
     return m
 
-@st.cache_data
 def create_heatmap(heat_data):
     heatmap = folium.Map(location=[0, 0], zoom_start=2, tiles=None, max_bounds=True)
 
@@ -1524,6 +1522,7 @@ def admin_panel():
                         final_df['Impact'] = final_df['Impact'].str.strip()
                         final_df = final_df.drop_duplicates()
                         new_data = preprocess_data(final_df)
+                        new_data["Coordinates"] = new_data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
                         new_data.to_excel(f"/var/data/{filename}", index=False)
                         st.success("Data concatenated successfully")
                         # Provide download button for rejected rows
