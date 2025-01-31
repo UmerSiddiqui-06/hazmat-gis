@@ -1681,8 +1681,20 @@ def chatgpt_explain(prompt):
 def summarize():
     cookies["summarize"] = "True"
     # cookies.save()
+# Caching conn functions
+@st.cache_data
+def get_gpt_status_from_conn():
+    return conn.get_gpt_status()
+
+@st.cache_data
+def get_user_gpt_status_from_conn(user_email):
+    return conn.get_user_gpt_status(user_email)
+
+@st.cache_data
+def get_gpt_limit_check_from_conn(user_email):
+    return conn.get_gpt_limit_check(user_email)
 @st.fragment
-def render_aggrid_data(df_display, user_type,user_email):
+def render_aggrid_data(df_display, user_type, user_email):
     full_data = df_display.copy()
     gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
     gb.configure_column("Category", minWidth=100)
@@ -1695,12 +1707,15 @@ def render_aggrid_data(df_display, user_type,user_email):
     gb.configure_column("Injuries", minWidth=50)
     gb.configure_column("Full Link", minWidth=100)
     gb.configure_column("Severity", minWidth=100)
-    if user_type=="admin":
+    
+    if user_type == "admin":
         gb.configure_column("Coordinates", minWidth=200)
 
     gb.configure_selection("single", use_checkbox=True)
+    
     if user_type == "admin":
         gb.configure_default_column(editable=True)
+
     gb.configure_column(
         "Full Link",
         headerName="Link",
@@ -1721,6 +1736,7 @@ def render_aggrid_data(df_display, user_type,user_email):
         """
         ),
     )
+    
     grid_options = gb.build()
 
     grid_response = AgGrid(
@@ -1732,25 +1748,24 @@ def render_aggrid_data(df_display, user_type,user_email):
         theme="streamlit",
         fit_columns_on_grid_load=True,
     )
-    selected_row =  grid_response.get("selected_rows", [])
-    chatgpt = conn.get_gpt_status()
-    if chatgpt and (
-        user_type == "admin"
-        or (
-            conn.get_user_gpt_status(user_email)
-            and conn.get_gpt_limit_check(user_email)
-        )
-    ):
+    
+    selected_row = grid_response.get("selected_rows", [])
+    
+    chatgpt_status = get_gpt_status_from_conn()
+    user_gpt_status = get_user_gpt_status_from_conn(user_email)
+    gpt_limit_check = get_gpt_limit_check_from_conn(user_email)
+    
+    if chatgpt_status and (user_type == "admin" or (user_gpt_status and gpt_limit_check)):
         if "summarize" not in st.session_state:
             st.session_state.summarize = None
             cookies["summarize"] = "False"
 
         if cookies.get("summarize") == "True":
-            if selected_row is not None:
+            if selected_row:
                 with st.container():
                     st.subheader("Summary")
-                    url = selected_row["Full Link"][0]
-                    title = selected_row["Title"][0]
+                    url = selected_row[0]["Full Link"]
+                    title = selected_row[0]["Title"]
 
                     # Placeholder for loader
                     loader_placeholder = st.empty()
@@ -1759,6 +1774,7 @@ def render_aggrid_data(df_display, user_type,user_email):
                         # Display loading spinner
                         with st.spinner("Generating response, please wait..."):
                             response = conn.get_gpt_response(url)
+                            
                             if not response:
                                 if cookies.get(title) is not None:
                                     response = cookies.get(title)
@@ -1774,8 +1790,7 @@ def render_aggrid_data(df_display, user_type,user_email):
                             if user_type != "admin":
                                 conn.increase_gpt(user_email)
                                 conn.add_gpt_history(user_email, url, title)
-                            
-
+                        
                     # Clear loader and display response
                     loader_placeholder.empty()
                     word_file = create_word_file(response)
@@ -1789,7 +1804,7 @@ def render_aggrid_data(df_display, user_type,user_email):
 
                 cookies["summarize"] = "False"
         else:
-            if selected_row is not None:
+            if selected_row:
                 st.button("Summarize", on_click=summarize)
 
 def render_aggrid(df_display, user_type,filename="temp"):
