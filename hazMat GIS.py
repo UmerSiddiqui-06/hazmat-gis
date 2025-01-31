@@ -1590,6 +1590,7 @@ def admin_panel():
                             st.success(f"File {selected_file} has been deleted.")
                             st.session_state.confirm_delete = False
                             st.session_state.file_to_delete = None
+                            st.session_state.data_modified = not st.session_state.data_modified
                     def cancel_delete():
                         st.session_state.confirm_delete = False
                         st.session_state.file_to_delete = None
