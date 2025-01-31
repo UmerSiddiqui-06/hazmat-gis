@@ -1751,10 +1751,10 @@ def render_aggrid_data(df_display, user_type, user_email):
     )
     
     selected_row = grid_response.get("selected_rows", [])
-    
     chatgpt_status = get_gpt_status_from_conn()
-    user_gpt_status = get_user_gpt_status_from_conn(user_email)
-    gpt_limit_check = get_gpt_limit_check_from_conn(user_email)
+    if user_type!="admin":
+        user_gpt_status = get_user_gpt_status_from_conn(user_email)
+        gpt_limit_check = get_gpt_limit_check_from_conn(user_email)
     
     if chatgpt_status and (user_type == "admin" or (user_gpt_status and gpt_limit_check)):
         if "summarize" not in st.session_state:
