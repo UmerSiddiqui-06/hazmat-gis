@@ -1747,6 +1747,7 @@ def render_aggrid_data(df_display, user_type, user_email):
     )
     
     selected_row = grid_response.get("selected_rows", [])
+    st.write("Selected: ",selected_row)
     chatgpt_status = get_gpt_status_from_conn()
     if user_type!="admin":
         user_gpt_status = get_user_gpt_status_from_conn(user_email)
