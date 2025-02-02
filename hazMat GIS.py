@@ -456,6 +456,7 @@ def register_page():
             password = st.text_input("Password", type="password")
             columns = st.columns((2,6,2.7))
             is_weak_password = False
+            is_invalid_password = False
             with columns[0]:
                 if st.button("Register"):
                     if not email:
@@ -466,7 +467,9 @@ def register_page():
                         if conn.is_user_exist(email):
                             st.warning("User Already Exists")
                         else:
+                            
                             if valid_email(email):
+                                is_invalid_password = False
                                 if valid_password(password):
                                     is_weak_password = False
                                     status = conn.get_status(email)
@@ -486,14 +489,16 @@ def register_page():
                                 else:
                                     is_weak_password = True
                             else:
-                                st.warning("Invalid Email, Try Again")
+                                is_invalid_password = True
+                                
             with columns[2]:
                 if st.button("Back to Login"):
                     st.session_state.page = "Login"
                     st.rerun()
             if is_weak_password:
                 st.warning("Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters.")
-
+            if is_invalid_password:
+                st.warning("Invalid Email, Try Again")
 def centralize_content():
     st.markdown(
         """
@@ -1747,7 +1752,6 @@ def render_aggrid_data(df_display, user_type, user_email):
     )
     
     selected_row = grid_response.get("selected_rows", [])
-    st.write("Selected: ",selected_row)
     chatgpt_status = get_gpt_status_from_conn()
     if user_type!="admin":
         user_gpt_status = get_user_gpt_status_from_conn(user_email)
