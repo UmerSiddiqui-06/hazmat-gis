@@ -407,22 +407,29 @@ def send_request_to_admin(user_email):
 
 
 def code_verification(code, email, password):
-    columns = st.columns((2.5, 5, 2.5))
+    columns = st.columns((1, 8, 1))
     with columns[1]:
         with st.container(border=True):
             passcode = st.text_input("Enter 6-digit verification code: ")
-            if st.button("Verify"):
-                if not passcode:
-                    st.warning("Please enter valid passcode")
-                else:
-                    if str(code) == passcode:
-                        conn.register_user(email, password)
-                        st.success("Your Registration Request has been submitted.")
-                        send_request_to_admin(email)
-                        st.session_state.page = "Login"
-                        st.rerun()
+            columns = st.columns((2,6,3.2))
+            with columns[0]:
+                if st.button("Verify"):
+                    if not passcode:
+                        st.warning("Please enter valid passcode")
                     else:
-                        st.error("Wrong Code")
+                        if str(code) == passcode:
+                            conn.register_user(email, password)
+                            st.success("Your Registration Request has been submitted.")
+                            send_request_to_admin(email)
+                            st.session_state.page = "Login"
+                            st.rerun()
+                        else:
+                            st.error("Wrong Code")
+            with columns[2]:
+                if st.button("Back to Register"):
+                    st.session_state.page = "Register"
+                    st.rerun()
+
 
 
 def rejected_page():
