@@ -2323,9 +2323,11 @@ def main_display(user_type, user_email):
             # @st.dialog("Data", width="large")
             # def show_full_screen_modal(df_display):
             #     st.dataframe(df_display)
+            def maximize_page():
+                st.switch_page("pages/data.py")
             with data_tab_cols[1]:
-                if st.button("Maximize"):
-                    st.switch_page("pages/data.py")
+                st.button("Maximize",on_click=maximize_page)
+                    
             with st.container():
                 selected_row = render_aggrid_data(df_display, user_type,user_email)
             #     st.write("Selected Row:",selected_row)
