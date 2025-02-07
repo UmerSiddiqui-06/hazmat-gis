@@ -31,7 +31,14 @@ from docx import Document
 from io import BytesIO
 import ast
 
-st.set_page_config(page_title="HazMat GIS",page_icon="logo1.png")
+st.set_page_config(page_title="HazMat GIS",page_icon="logo1.png",initial_sidebar_state="collapsed")
+hide_sidebar_css = """
+    <style>
+        ul[data-testid="stSidebarNavItems"] {display: none !important;} /* Hide sidebar page links */
+        div[data-testid="stSidebarNavSeparator"] {display: none !important;} /* Hide separator */
+    </style>
+"""
+st.markdown(hide_sidebar_css, unsafe_allow_html=True)
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
@@ -559,6 +566,7 @@ def login_page():
                     st.session_state.page = "admin_panel"
                     st.session_state.user_email = email
                     st.session_state.user_type = "admin"
+                    st.session_state.sidebar_hidden = False
                     cookies.save()
                     if conn.is_temporary_password(email):
                         show_toast("This is a custom toast notification!")
@@ -571,6 +579,7 @@ def login_page():
                     st.session_state.user_type = "user"
                     st.session_state.user_email = email
                     st.session_state.page = "main_display"
+                    st.session_state.sidebar_hidden = False
 
                     if conn.is_temporary_password(email):
                         show_toast(
@@ -2314,9 +2323,9 @@ def main_display(user_type, user_email):
             # @st.dialog("Data", width="large")
             # def show_full_screen_modal(df_display):
             #     st.dataframe(df_display)
-            # with data_tab_cols[1]:
-            #     if st.button("Maximize"):
-            #         show_full_screen_modal(df_display)
+            with data_tab_cols[1]:
+                if st.button("Maximize"):
+                    st.switch_page("pages/data.py")
             with st.container():
                 selected_row = render_aggrid_data(df_display, user_type,user_email)
             #     st.write("Selected Row:",selected_row)
@@ -2470,7 +2479,19 @@ def main():
         st.session_state.selected_tab = None
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
+    # if "sidebar_hidden" not in st.session_state:
+    #     st.session_state.sidebar_hidden = True
+    # hide_sidebar_css = """
+    #     <style>
+    #         [data-testid="stSidebar"] {
+    #             display: none;
+    #         }
+    #     </style>
+    # """
 
+    # # Hide sidebar when user is not logged in
+    # if st.session_state.sidebar_hidden:
+    #     st.markdown(hide_sidebar_css, unsafe_allow_html=True)
     if st.session_state.page == "Forget_Password":
         forget_password()
 
