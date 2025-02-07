@@ -308,29 +308,36 @@ class sqlpy:
     
     def get_gpt_limit_check(self,user):
         self.cursor.execute("SELECT ChatGpt_used FROM users WHERE email = ?",(user,))
-        data = self.cursor.fetchone()[0]
-        self.cursor.execute("SELECT ChatGpt_limit FROM users WHERE email = ?",(user,))
-        limit = self.cursor.fetchone()[0]
-        if data < limit:
-            return True
-        else:
-            if data == limit:
-                self.cursor.execute("SELECT last_reset_date FROM users WHERE email = ?",(user,))
-                old_date = self.cursor.fetchone()[0]
-                new_date = datetime.now()
-                old_date = datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S.%f")
-                difference = new_date - old_date
-                if difference.days >= 30:
-                    print(difference.days)
-                    n = difference.days//30
-                    new_datetime = old_date + relativedelta(months=n)
-                    self.cursor.execute("UPDATE users SET ChatGpt_used = ? , last_reset_date = ? WHERE email = ?",(0,new_datetime,user))
-                    self.conn.commit()
+        data = self.cursor.fetchone()
+        if data:
+            data = data[0]
+            self.cursor.execute("SELECT ChatGpt_limit FROM users WHERE email = ?",(user,))
+            limit = self.cursor.fetchone()
+            if limit:
+                limit = limit[0]
+                if data < limit:
                     return True
                 else:
+                    if data == limit:
+                        self.cursor.execute("SELECT last_reset_date FROM users WHERE email = ?",(user,))
+                        old_date = self.cursor.fetchone()[0]
+                        new_date = datetime.now()
+                        old_date = datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S.%f")
+                        difference = new_date - old_date
+                        if difference.days >= 30:
+                            print(difference.days)
+                            n = difference.days//30
+                            new_datetime = old_date + relativedelta(months=n)
+                            self.cursor.execute("UPDATE users SET ChatGpt_used = ? , last_reset_date = ? WHERE email = ?",(0,new_datetime,user))
+                            self.conn.commit()
+                            return True
+                        else:
+                            return False
                     return False
-            return False
-        
+            else:
+                return None 
+        else:
+            return None 
     def increase_gpt(self,user):
         self.cursor.execute("SELECT last_reset_date FROM users WHERE email = ?",(user,))
         old_date = self.cursor.fetchone()[0]
