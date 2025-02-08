@@ -1,0 +1,126 @@
+import streamlit as st
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+import time
+import pandas as pd
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+hide_sidebar_css = """
+    <style>
+        ul[data-testid="stSidebarNavItems"] {display: none !important;} /* Hide sidebar page links */
+        div[data-testid="stSidebarNavSeparator"] {display: none !important;} /* Hide separator */
+    </style>
+"""
+st.markdown(hide_sidebar_css, unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        .block-container {
+            margin: 0px 15px !important; /* 10px top & bottom, 15px left & right */
+            padding: 10px !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+
+st.markdown("""
+    <style>
+        /* Hide the entire sidebar */
+        section[data-testid="stSidebar"] {
+            display: none !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        .st-emotion-cache-1rliy6u {
+            display: none !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+if "filename" not in st.session_state or "selected_file" not in st.session_state:
+    st.switch_page("hazMat GIS.py")
+def render_aggrid(df_display,filename="temp"):
+    if st.button("Go Back"):
+        st.session_state.admin_data = False
+        st.switch_page("hazMat GIS.py")
+    full_data = df_display.copy()
+    gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
+    gb.configure_column("Category", minWidth=100)
+    gb.configure_column("Title", minWidth=400)
+    gb.configure_column("Country", minWidth=250)
+    gb.configure_column("City", minWidth=200)
+    gb.configure_column("Date", minWidth=100)
+    gb.configure_column("Impact", minWidth=150)
+    gb.configure_column("Casuality", minWidth=50)
+    gb.configure_column("Injuries", minWidth=50)
+    gb.configure_column("Full Link", minWidth=100)
+    gb.configure_column("Severity", minWidth=100)
+
+    gb.configure_column("Coordinates", minWidth=200)
+
+    gb.configure_selection("single", use_checkbox=True)
+
+    gb.configure_default_column(editable=True)
+    gb.configure_column(
+        "Full Link",
+        headerName="Link",
+        cellRenderer=JsCode(
+            """
+            class UrlCellRenderer {
+            init(params) {
+                this.eGui = document.createElement('a');
+                this.eGui.innerText = 'Link';
+                this.eGui.setAttribute('href', params.value);
+                this.eGui.setAttribute('style', "text-decoration:none");
+                this.eGui.setAttribute('target', "_blank");
+            }
+            getGui() {
+                return this.eGui;
+            }
+            }
+        """
+        ),
+    )
+    grid_options = gb.build()
+
+    grid_response = AgGrid(
+        df_display,
+        gridOptions=grid_options,
+        updateMode=GridUpdateMode.MODEL_CHANGED,
+        allow_unsafe_jscode=True,
+        height=800,
+        theme="streamlit",
+        fit_columns_on_grid_load=True,
+    )
+
+    if grid_response['data'] is not None:
+        updated_df = pd.DataFrame(grid_response['data'])
+        original_data = df_display.reset_index(drop=True)
+        updated_data = updated_df.reset_index(drop=True)
+        if not updated_data.equals(original_data): 
+            if st.button("Save Changes"):
+                
+                # Update only the modified rows and cells
+                for index, row in updated_data.iterrows():
+                    if not row.equals(original_data.loc[index]):  # Check if the row has changed
+                        for col in updated_data.columns:
+                            if row[col] != original_data.loc[index, col]:  # Check specific cell changes
+                                # Find the corresponding index in the full_data DataFrame
+                                full_index = full_data.index[original_data.index[index]]
+                                full_data.loc[full_index, col] = row[col]
+                
+                # Save back the updated Excel file
+                full_data.to_excel(f"data/{filename}", index=False)
+                st.success("Data saved to Excel successfully!")
+                df_display = updated_df
+                time.sleep(1)
+                st.rerun()
+
+    return grid_response.get("selected_rows", [])
+
+render_aggrid(st.session_state.selected_file,st.session_state.filename)
