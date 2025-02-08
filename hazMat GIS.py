@@ -1443,6 +1443,10 @@ def admin_panel():
             st.session_state.selected_emails_usage = final_selected_emails
             st.rerun()
     with col5:
+        if "selected_file" not in st.session_state:
+            st.session_state.selected_file = None
+        if "filename" not in st.session_state:
+            st.session_state.filename = None
         st.header("Upload Data")
         new_data_file = st.file_uploader(
             "Upload an Excel File", type="xlsx", label_visibility="collapsed"
@@ -1582,12 +1586,15 @@ def admin_panel():
                 
                 # Display the selected file's DataFrame
                 if selected_file:
+                    st.session_state.filename = selected_file
+                    st.session_state.selected_file = excel_files[selected_file]
+
                     # Create a header for the file
                     st.subheader(f"Contents of {selected_file}")
 
                     # Use a container to tightly group the buttons
                     with st.container():
-                        col1, col2 = st.columns([1, 1])  # Equal-sized columns for buttons
+                        col1, col2, col3 = st.columns(3)  # Equal-sized columns for buttons
                         with col1:
                             excel_buffer = BytesIO()
                             excel_files[selected_file].to_excel(excel_buffer, index=False, engine='openpyxl')
@@ -1602,6 +1609,12 @@ def admin_panel():
                             if st.button("🗑️ Delete"):
                                 st.session_state.confirm_delete = True
                                 st.session_state.file_to_delete = "/var/data/" + selected_file
+                        with col3:
+                            def goto_admin_data():
+                                st.session_state.admin_data=True
+                                st.rerun()
+                            st.button("Maximize",on_click=goto_admin_data)
+                            
                     def confirm_delete():
                         if os.path.exists(st.session_state.file_to_delete):
                             os.remove(st.session_state.file_to_delete)
@@ -2484,8 +2497,12 @@ def main():
         st.session_state.user_email = None
     if "go_to_page" not in st.session_state:
         st.session_state.go_to_page = False
+    if "admin_data" not in st.session_state:
+        st.session_state.admin_data = False
     if st.session_state.go_to_page:
         st.switch_page("pages/data.py")
+    if st.session_state.admin_data:
+        st.switch_page("pages/admin_data.py")
     if st.session_state.page == "Forget_Password":
         forget_password()
 

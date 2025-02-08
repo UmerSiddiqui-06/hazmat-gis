@@ -21,6 +21,37 @@ hide_sidebar_css = """
     </style>
 """
 st.markdown(hide_sidebar_css, unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        .block-container {
+            margin: 0px 15px !important; /* 10px top & bottom, 15px left & right */
+            padding: 10px !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+
+st.markdown("""
+    <style>
+        /* Hide the entire sidebar */
+        section[data-testid="stSidebar"] {
+            display: none !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        .st-emotion-cache-1rliy6u {
+            display: none !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 if "logged_in" not in st.session_state:
     st.switch_page("hazMat GIS.py")
 if st.session_state.logged_in:
