@@ -2128,7 +2128,6 @@ def main_display(user_type, user_email):
 
         with tab1:
             st.subheader("Incident Map")
-            
             selected_categories = st.session_state.get("selected_categories", None)
             m = create_folium_map(filtered_data, world, selected_categories)
             
@@ -2324,8 +2323,12 @@ def main_display(user_type, user_email):
             # def show_full_screen_modal(df_display):
             #     st.dataframe(df_display)
             with data_tab_cols[1]:
-                if st.button("Maximize"):
-                    st.switch_page("pages/data.py")
+                def go_to_page():
+                    st.session_state.go_to_page = True
+                    st.rerun()  # Rerun the app to trigger the page switch
+
+                # Button with on_click event
+                st.button("Maximize", on_click=go_to_page)
             with st.container():
                 selected_row = render_aggrid_data(df_display, user_type,user_email)
             #     st.write("Selected Row:",selected_row)
@@ -2479,19 +2482,10 @@ def main():
         st.session_state.selected_tab = None
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
-    # if "sidebar_hidden" not in st.session_state:
-    #     st.session_state.sidebar_hidden = True
-    # hide_sidebar_css = """
-    #     <style>
-    #         [data-testid="stSidebar"] {
-    #             display: none;
-    #         }
-    #     </style>
-    # """
-
-    # # Hide sidebar when user is not logged in
-    # if st.session_state.sidebar_hidden:
-    #     st.markdown(hide_sidebar_css, unsafe_allow_html=True)
+    if "go_to_page" not in st.session_state:
+        st.session_state.go_to_page = False
+    if st.session_state.go_to_page:
+        st.switch_page("pages/data.py")
     if st.session_state.page == "Forget_Password":
         forget_password()
 
