@@ -28,9 +28,9 @@ if st.session_state.logged_in:
     if not cookies.ready():
         st.stop()
     conn = utitlity.sqlpy()
-    def goto_main():
-        st.switch_page("hazMat GIS.py")
+
     if st.button("Go Back"):
+        st.session_state.go_to_page = False
         st.switch_page("hazMat GIS.py")
     def load_country_list(file_path):
         """Load the country list from a file."""
