@@ -115,7 +115,7 @@ if st.session_state.logged_in:
                 return None
             # Concatenate all DataFrames into a single DataFrame
             data = pd.concat(dataframes, ignore_index=True)
-            data["Date"] = pd.to_datetime(data["Date"])
+            data["Date"] = pd.to_datetime(data["Date"]).dt.strftime('%Y-%m-%d')
             data['Country'] = standardize_country_column(data['Country'])
             data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
             data = data.drop_duplicates()
@@ -168,19 +168,21 @@ if st.session_state.logged_in:
     def render_aggrid_data(df_display, user_type, user_email):
         full_data = df_display.copy()
         gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
-        gb.configure_column("Category", minWidth=100)
-        gb.configure_column("Title", minWidth=400)
-        gb.configure_column("Country", minWidth=250)
-        gb.configure_column("City", minWidth=200)
-        gb.configure_column("Date", minWidth=100)
-        gb.configure_column("Impact", minWidth=150)
-        gb.configure_column("Casuality", minWidth=50)
-        gb.configure_column("Injuries", minWidth=50)
-        gb.configure_column("Full Link", minWidth=100)
-        gb.configure_column("Severity", minWidth=100)
-        
+        gb.configure_column("Category")
+        gb.configure_column("Title")
+        gb.configure_column("Country")
+        gb.configure_column("City")
+        gb.configure_column("Date")
+        gb.configure_column("Impact")
+        gb.configure_column("Casuality")
+        gb.configure_column("Injuries")
+        gb.configure_column("Full Link")
+        gb.configure_column("Severity")
+        gb.configure_default_column(
+            editable=False, groupable=True,flex=1
+        )
         if user_type == "admin":
-            gb.configure_column("Coordinates", minWidth=200)
+            gb.configure_column("Coordinates")
 
         gb.configure_selection("single", use_checkbox=True)
         

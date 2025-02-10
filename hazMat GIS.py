@@ -71,7 +71,7 @@ def load_data():
             return None
         # Concatenate all DataFrames into a single DataFrame
         data = pd.concat(dataframes, ignore_index=True)
-        data["Date"] = pd.to_datetime(data["Date"])
+        data["Date"] = pd.to_datetime(data["Date"], errors='coerce').dt.normalize()
         data['Country'] = standardize_country_column(data['Country'])
         data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
         data = data.drop_duplicates()
@@ -1840,6 +1840,7 @@ def render_aggrid_data(df_display, user_type, user_email):
 
 
 def render_aggrid(df_display, user_type,filename="temp"):
+    df_display["Date"] = pd.to_datetime(df_display["Date"]).dt.strftime('%Y-%m-%d')
     full_data = df_display.copy()
     gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
     gb.configure_column("Category", minWidth=100)
@@ -2142,6 +2143,7 @@ def main_display(user_type, user_email):
         with tab1:
             st.subheader("Incident Map")
             selected_categories = st.session_state.get("selected_categories", None)
+            filtered_data["Date"] = pd.to_datetime(filtered_data["Date"], errors='coerce').dt.date
             m = create_folium_map(filtered_data, world, selected_categories)
             
             folium_static(m, width=900, height=500)
@@ -2310,7 +2312,8 @@ def main_display(user_type, user_email):
                     "Full Link"
                 ]
             df_display = filtered_data[display_columns].copy()
-            df_display["Date"] = df_display["Date"].dt.strftime("%d-%m-%Y")
+            df_display["Date"] = pd.to_datetime(df_display["Date"], errors='coerce').dt.strftime('%Y-%m-%d')
+
 
             csv = df_display.to_csv(index=False)
             filters = [
