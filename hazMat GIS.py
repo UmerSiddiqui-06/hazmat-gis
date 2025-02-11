@@ -2177,7 +2177,8 @@ def main_display(user_type, user_email):
                 "Chemical": "orange",
                 "Nuclear": "blue",
             }
-            
+            temp_fig = px.pie(category_counts, names='Category', values='Values', title='Pie Chart Example')
+            st.plotly_chart(temp_fig)
             fig1 = px.pie(
                 values=category_counts.values.tolist(),
                 names=category_counts.index.tolist(),
