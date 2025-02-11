@@ -2164,7 +2164,7 @@ def main_display(user_type, user_email):
             df_exploded['Category'] = df_exploded['Category'].str.strip()
             category_counts = df_exploded["Category"].value_counts()
             st.write(category_counts)
-            st.write(category_counts.info())
+            st.write(category_counts.values.tolist())
             color_map = {
                 "Explosive": "black",
                 "Biological": "green",
@@ -2174,7 +2174,7 @@ def main_display(user_type, user_email):
             }
             
             fig1 = px.pie(
-                values=category_counts.values,
+                values=category_counts.values.tolist(),
                 names=category_counts.index,
                 title="Distribution by Category",
                 color=category_counts.index,
