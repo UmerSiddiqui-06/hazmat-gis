@@ -39,7 +39,7 @@ hide_sidebar_css = """
     </style>
 """
 st.markdown(hide_sidebar_css, unsafe_allow_html=True)
-import streamlit as st
+
 
 # Hide Streamlit warnings using markdown and CSS
 hide_warning = """
@@ -63,6 +63,9 @@ if not cookies.ready():
 warnings.filterwarnings("ignore")
 # Connection with database
 conn = utitlity.sqlpy()
+st.write("conn:" ,conn.conn)
+if not conn:
+    st.stop()
 
 def load_data():
     try:
@@ -87,7 +90,7 @@ def load_data():
         data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
         data = data.drop_duplicates()
     except Exception as e:
-        st.error(f"Error Occured while loading Data: {e}")
+        custom_error(f"Error Occured while loading Data: {e}")
         st.stop()
     return data
 
@@ -284,7 +287,8 @@ def filter_data(
 
 from folium.plugins import MarkerCluster
 
-def create_folium_map(filtered_data, world, selected_categories=None):
+@st.cache_resource
+def create_folium_map(filtered_data, _world, selected_categories=None):
     m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
     temp_df = filtered_data.copy()
 
@@ -305,7 +309,7 @@ def create_folium_map(filtered_data, world, selected_categories=None):
     ).add_to(m)
 
     folium.GeoJson(
-        world,
+        _world,
         style_function=lambda feature: {
             "fillColor": "transparent",
             "color": "#bcbcbc",
@@ -405,7 +409,7 @@ def send_email_code(recipient):
         yag = yagmail.SMTP(email, email_password)
         yag.send(to=recipient, subject=subject, contents=contents)
     except Exception as e:
-        st.error(f"Failed to send verification code")
+        custom_error(f"Failed to send verification code")
     return code
 
 
@@ -421,8 +425,30 @@ def send_request_to_admin(user_email):
         yag = yagmail.SMTP(email, email_password)
         yag.send(to=admin_email, subject=subject, contents=body)
     except Exception as e:
-        st.error(f"Failed to send verification code")
+        custom_error(f"Failed to send verification code")
 
+def custom_warning(message):
+    st.markdown(
+        f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 10px 16px;
+            border-radius: 4px;
+            border: 1px solid #ffeeba;
+            font-weight: 700;
+            font-size: 16px;
+        ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" style="margin-right: 10px; flex-shrink: 0;" viewBox="0 0 16 16">
+                <path d="M7.002 1.316a1.5 1.5 0 0 1 1.996 0l6.857 6.195a1.5 1.5 0 0 1 0 2.26l-6.857 6.195a1.5 1.5 0 0 1-1.996 0L.145 9.771a1.5 1.5 0 0 1 0-2.26L7.002 1.316zM8 5.5a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 8 5.5zm0 6.25a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5z"/>
+            </svg>
+            {message}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 def code_verification(code, email, password):
     columns = st.columns((1, 8, 1))
@@ -433,7 +459,7 @@ def code_verification(code, email, password):
             with columns[0]:
                 if st.button("Verify"):
                     if not passcode:
-                        st.warning("Please enter valid passcode")
+                        custom_warning("Please enter valid passcode")
                     else:
                         if str(code) == passcode:
                             conn.register_user(email, password)
@@ -442,7 +468,7 @@ def code_verification(code, email, password):
                             st.session_state.page = "Login"
                             st.rerun()
                         else:
-                            st.error("Wrong Code")
+                            custom_error("Wrong Code")
             with columns[2]:
                 if st.button("Back to Register"):
                     st.session_state.page = "Register"
@@ -455,7 +481,7 @@ def rejected_page():
     with columns[1]:
         with st.container(border=True):
             st.subheader("Sorry to Say 😔")
-            st.error("Your request was not accepted.")
+            custom_error("Your request was not accepted.")
             if st.button("Back to Login Page"):
                 st.session_state.page = "Login"
                 st.rerun()
@@ -466,7 +492,7 @@ def pending_page():
     with columns[1]:
         with st.container(border=True):
             st.subheader("Please Wait ⏳")
-            st.warning("Your request has not been accepted yet.")
+            custom_warning("Your request has not been accepted yet.")
             if st.button("Back to Login Page"):
                 st.session_state.page = "Login"
                 st.rerun()
@@ -485,12 +511,12 @@ def register_page():
             with columns[0]:
                 if st.button("Register"):
                     if not email:
-                        st.warning("Please enter email")
+                        custom_warning("Please enter email")
                     elif not password:
-                        st.warning("Please enter passowrd")
+                        custom_warning("Please enter passowrd")
                     else:
                         if conn.is_user_exist(email):
-                            st.warning("User Already Exists")
+                            custom_warning("User Already Exists")
                         else:
                             
                             if valid_email(email):
@@ -521,9 +547,9 @@ def register_page():
                     st.session_state.page = "Login"
                     st.rerun()
             if is_weak_password:
-                st.warning("Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters.")
+                custom_warning("Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters.")
             if is_invalid_password:
-                st.warning("Invalid Email, Try Again")
+                custom_warning("Invalid Email, Try Again")
 def centralize_content():
     st.markdown(
         """
@@ -562,9 +588,10 @@ def login_page():
         if login_button:
             print(st.session_state.logged_in)
             if not email:
-                st.warning("Please enter email")
+                custom_warning("Please enter email")
             elif not password:
-                st.warning("Please enter password")
+                custom_warning("Please enter password")
+                custom_warning("Please enter password")
             else:
                 is_admin = conn.check_login_admin(email, password)
                 is_user = conn.check_login_user(email, password)
@@ -610,7 +637,7 @@ def login_page():
                     st.session_state.page = "Pending"
                     st.rerun()
                 else:
-                    st.error("Wrong Password, Try Again")
+                    custom_error("Wrong Password, Try Again")
         
             
         with col5:
@@ -785,7 +812,7 @@ def show_delete_confirmation_modal(email):
     """
     if st.session_state.get("show_modal", False):
         # Display the modal content
-        st.warning(f"Are you sure you want to delete the user with email: {email}?")
+        custom_warning(f"Are you sure you want to delete the user with email: {email}?")
         col1, col2 = st.columns(2)
         with col1:
             st.button("Yes, Delete",on_click=delete_user,args=(email,))
@@ -1014,7 +1041,7 @@ def admin_panel():
                                     & (temp_data["Time"] <= pd.Timestamp(end_date))
                                 ]
                             else:
-                                st.warning("Please select a valid start and end date.")
+                                custom_warning("Please select a valid start and end date.")
 
                         gb = GridOptionsBuilder.from_dataframe(temp_data)
                         # gb.configure_grid_options(rowStyle={"backgroundColor": "white"})
@@ -1035,9 +1062,9 @@ def admin_panel():
                         )
 
                     else:
-                        st.warning("Not Enough Data")
+                        custom_warning("Not Enough Data")
         else:
-            st.warning("Not Enough Data")
+            custom_warning("Not Enough Data")
     with col3:
         users = conn.get_users()
         # if users:
@@ -1249,7 +1276,7 @@ def admin_panel():
                             & (temp_data["Download Date"] <= pd.Timestamp(end_date))
                         ]
                     else:
-                        st.warning("Please select a valid start and end date.")
+                        custom_warning("Please select a valid start and end date.")
 
                 gb = GridOptionsBuilder.from_dataframe(temp_data)
                 gb.configure_grid_options(domLayout="normal")
@@ -1272,7 +1299,7 @@ def admin_panel():
                     height=200,
                 )
             else:
-                st.warning("Not Enough Data")
+                custom_warning("Not Enough Data")
     with col1:
         display_col1()
     with col4:
@@ -1575,9 +1602,9 @@ def admin_panel():
                                 st.rerun()
                             
                     except Exception as e:
-                        st.error(f"Error occurred: {str(e)}")
+                        custom_error(f"Error occurred: {str(e)}")
                 else:
-                    st.warning("Please enter filename")
+                    custom_warning("Please enter filename")
 
         excel_files = {}
         try:
@@ -1587,8 +1614,12 @@ def admin_panel():
                     excel_files[file_name] = pd.read_excel(file_path)
             
             if not excel_files:
-                st.warning("No Excel files found in the specified folder.")
-            else:        
+                st.write("hellop")
+                st.markdown("⚠️ **No Excel files found in the specified folder.**", unsafe_allow_html=True)
+
+                # custom_warning("No Excel files found in the specified folder.")
+            else:       
+                st.write("heelo") 
                 # Streamlit dropdown to select a file
                 selected_file = st.selectbox("Select an Excel file to view:", list(excel_files.keys()))
                 if "confirm_delete" not in st.session_state:
@@ -1637,7 +1668,7 @@ def admin_panel():
                         st.session_state.file_to_delete = None
                     # Confirmation Modal
                     if st.session_state.confirm_delete:
-                        st.warning(f"Are you sure you want to delete {selected_file}?")
+                        custom_warning(f"Are you sure you want to delete {selected_file}?")
                         confirm_col1, confirm_col2 = st.columns([1, 1])
 
                         with confirm_col1:
@@ -1651,8 +1682,31 @@ def admin_panel():
                     render_aggrid(excel_files[selected_file],user_type="admin",filename=selected_file)
 
         except:
-            st.warning("No Excel files found in the specified folder.")
-        
+            custom_warning("No Excel files found in the specified folder.")
+
+def custom_error(message):
+    st.markdown(
+        f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px 16px;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
+            font-weight: 700;
+            font-size: 16px;
+        ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" style="margin-right: 10px; flex-shrink: 0;" viewBox="0 0 16 16">
+                <path d="M8.982 1.566a1.5 1.5 0 0 0-1.964 0L.165 7.47a1.5 1.5 0 0 0 0 2.26l6.853 5.905a1.5 1.5 0 0 0 1.964 0l6.853-5.905a1.5 1.5 0 0 0 0-2.26L8.982 1.566zM8 5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 5.5zm0 6.25a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5z"/>
+            </svg>
+            {message}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )   
+
 def increase_gpt_limit(user_id, number_key):
     if st.session_state[number_key] != st.session_state.gpt_limit_state[number_key]:
         st.session_state.gpt_limit_state[number_key] = st.session_state[number_key]
@@ -1953,28 +2007,28 @@ def change_password(email):
             elif update_password:
                 if is_user:
                     if new_password != confirm_password:
-                        st.warning("Passwords do not match!")
+                        custom_warning("Passwords do not match!")
                     else:
                         if valid_password(new_password):
                             conn.update_password_users(email, new_password)
                             st.success("Password updated successfully!")
                         else:
-                            st.warning(
+                            custom_warning(
                                 "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
                             )
                 elif is_admin:
                     if new_password != confirm_password:
-                        st.warning("Passwords do not match!")
+                        custom_warning("Passwords do not match!")
                     else:
                         if valid_password(new_password):
                             conn.update_password_admin(email, new_password)
                             st.success("Password updated successfully!")
                         else:
-                            st.warning(
+                            custom_warning(
                                 "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
                             )
                 else:
-                    st.warning("Wrong Password. Try Again")
+                    custom_warning("Wrong Password. Try Again")
 
 
 def show_toast(message, duration=2):
@@ -2447,7 +2501,7 @@ def main_display(user_type, user_email):
             """
             )
     else:
-        st.warning("Data Unavailable")
+        custom_warning("Data Unavailable")
 
 def generate_temp_password(length=8):
     characters = string.ascii_letters + string.digits + string.punctuation
@@ -2471,7 +2525,7 @@ def forget_password():
 
             if submit:
                 if not email:
-                    st.error("Email is required!")
+                    custom_error("Email is required!")
                     return
 
                 user = conn.is_user_exist(email)
@@ -2501,9 +2555,9 @@ def forget_password():
                         st.rerun()
 
                     except Exception as e:
-                        st.error(f"Failed to send email: {e}")
+                        custom_error(f"Failed to send email: {e}")
                 else:
-                    st.error("Email not found!")
+                    custom_error("Email not found!")
             elif back_to_login:
                 st.session_state.page = "Login"
                 st.rerun()
