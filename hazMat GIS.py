@@ -42,14 +42,14 @@ st.markdown(hide_sidebar_css, unsafe_allow_html=True)
 import streamlit as st
 
 # Hide Streamlit warnings using markdown and CSS
-hide_warning = """
-    <style>
-        [data-testid="stAlertContainer"] {
-            display: none !important;
-        }
-    </style>
-"""
-st.markdown(hide_warning, unsafe_allow_html=True)
+# hide_warning = """
+#     <style>
+#         [data-testid="stAlertContainer"] {
+#             display: none !important;
+#         }
+#     </style>
+# """
+# st.markdown(hide_warning, unsafe_allow_html=True)
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
@@ -2177,7 +2177,9 @@ def main_display(user_type, user_email):
                 "Chemical": "orange",
                 "Nuclear": "blue",
             }
-            temp_fig = px.pie(category_counts, names='Category', values='Values', title='Pie Chart Example')
+            temp_df = category_counts.reset_index()
+            temp_df.columns = ['Category', 'Counts']
+            temp_fig = px.pie(temp_df, names='Category', values='Counts', title='Pie Chart from Series')
             st.plotly_chart(temp_fig)
             fig1 = px.pie(
                 values=category_counts.values.tolist(),
