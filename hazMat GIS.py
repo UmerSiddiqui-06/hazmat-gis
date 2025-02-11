@@ -31,7 +31,7 @@ from docx import Document
 from io import BytesIO
 import ast
 
-st.set_page_config(page_title="HazMat GIS",page_icon="logo1.png",initial_sidebar_state="collapsed")
+st.set_page_config(page_title="HazMat GIS",page_icon="logo1.png",initial_sidebar_state="auto")
 hide_sidebar_css = """
     <style>
         ul[data-testid="stSidebarNavItems"] {display: none !important;} /* Hide sidebar page links */
