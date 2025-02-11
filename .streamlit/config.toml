@@ -1,7 +1,7 @@
 [client]
 showErrorDetails = "none"
-
-toolbarMode = "auto"
+toolbarMode = "viewer"
+showSidebarNavigation = false
 [theme]
 base="dark"  # Options: "light", "dark"
 primaryColor="#1f77b4"  # Hex color for primary elements
@@ -12,10 +12,8 @@ font="sans serif"  # Options: "serif", "sans serif", or "monospace"
 [server]
 headless = true
 
-[global]
-developmentMode = false
-
-
+[logger]
+level = "error"
 
 
 
