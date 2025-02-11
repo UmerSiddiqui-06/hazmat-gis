@@ -2179,7 +2179,22 @@ def main_display(user_type, user_email):
             }
             temp_df = category_counts.reset_index()
             temp_df.columns = ['Category', 'Counts']
-            temp_fig = px.pie(temp_df, names='Category', values='Counts', title='Pie Chart from Series')
+            temp_fig = px.pie(temp_df, names='Category', values='Counts', title='Distribution by Category',color=category_counts.index.tolist(),color_discrete_map=color_map,)
+            temp_fig.update_layout(
+                template="plotly_dark",
+                height=400,
+                margin=dict(l=150),
+                legend_title="Categories",
+                legend=dict(
+                    orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2
+                ),
+            )
+
+            temp_fig.update_traces(
+                textposition="inside",
+                textinfo="percent+label",
+                hovertemplate="<b>%{label}</b><br>Count: %{value}<br>",
+            )
             st.plotly_chart(temp_fig)
             fig1 = px.pie(
                 values=category_counts.values.tolist(),
