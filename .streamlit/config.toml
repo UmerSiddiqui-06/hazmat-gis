@@ -1,4 +1,12 @@
+[client]
+showErrorDetails = "none"
+toolbarMode = "viewer"
+showSidebarNavigation = false
+[server]
+headless = true
 
+[logger]
+level = "error"
 [theme]
 base="dark"  # Options: "light", "dark"
 primaryColor="#1f77b4"  # Hex color for primary elements
