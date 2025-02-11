@@ -2152,6 +2152,10 @@ def main_display(user_type, user_email):
         tab1, tab2, tab3 = st.tabs(["Incident Map", "Heatmap","Data"])
 
         with tab1:
+            if st.button("Clear Cache"):
+                st.cache_data.clear()  # Clears cached data
+                st.cache_resource.clear()  # Clears cached resources
+                st.rerun()  # Rerun the app to refresh data
             st.subheader("Incident Map")
             selected_categories = st.session_state.get("selected_categories", None)
             filtered_data["Date"] = pd.to_datetime(filtered_data["Date"], errors='coerce').dt.date
