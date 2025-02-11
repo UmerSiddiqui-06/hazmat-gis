@@ -63,7 +63,6 @@ if not cookies.ready():
 warnings.filterwarnings("ignore")
 # Connection with database
 conn = utitlity.sqlpy()
-st.write("conn:" ,conn.conn)
 if not conn:
     st.stop()
 
