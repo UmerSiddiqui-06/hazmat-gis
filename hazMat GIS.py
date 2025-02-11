@@ -42,14 +42,14 @@ st.markdown(hide_sidebar_css, unsafe_allow_html=True)
 import streamlit as st
 
 # Hide Streamlit warnings using markdown and CSS
-# hide_warning = """
-#     <style>
-#         [data-testid="stAlertContainer"] {
-#             display: none !important;
-#         }
-#     </style>
-# """
-# st.markdown(hide_warning, unsafe_allow_html=True)
+hide_warning = """
+    <style>
+        [data-testid="stAlertContainer"] {
+            display: none !important;
+        }
+    </style>
+"""
+st.markdown(hide_warning, unsafe_allow_html=True)
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
@@ -2152,10 +2152,7 @@ def main_display(user_type, user_email):
         tab1, tab2, tab3 = st.tabs(["Incident Map", "Heatmap","Data"])
 
         with tab1:
-            if st.button("Clear Cache"):
-                st.cache_data.clear()  # Clears cached data
-                st.cache_resource.clear()  # Clears cached resources
-                st.rerun()  # Rerun the app to refresh data
+
             st.subheader("Incident Map")
             selected_categories = st.session_state.get("selected_categories", None)
             filtered_data["Date"] = pd.to_datetime(filtered_data["Date"], errors='coerce').dt.date
@@ -2163,13 +2160,12 @@ def main_display(user_type, user_email):
             
             folium_static(m, width=900, height=500)
             df = filtered_data.copy()
-            st.write(df["Category"])
+
             df['Category'] = df['Category'].str.split(',')
             df_exploded = df.explode('Category', ignore_index=True)
             df_exploded['Category'] = df_exploded['Category'].str.strip()
             category_counts = df_exploded["Category"].value_counts()
-            st.write(category_counts.index.tolist())
-            st.write(category_counts.values.tolist())
+
             color_map = {
                 "Explosive": "black",
                 "Biological": "green",
@@ -2196,35 +2192,35 @@ def main_display(user_type, user_email):
                 hovertemplate="<b>%{label}</b><br>Count: %{value}<br>",
             )
             st.plotly_chart(temp_fig)
-            fig1 = px.pie(
-                values=category_counts.values.tolist(),
-                names=category_counts.index.tolist(),
-                title="Distribution by Category",
-                # color=category_counts.index.tolist(),
-                # color_discrete_map=color_map,  # Use the dictionary directly
-            )
+            # fig1 = px.pie(
+            #     values=category_counts.values.tolist(),
+            #     names=category_counts.index.tolist(),
+            #     title="Distribution by Category",
+            #     # color=category_counts.index.tolist(),
+            #     # color_discrete_map=color_map,  # Use the dictionary directly
+            # )
 
-            fig1.update_layout(
-                template="plotly_dark",
-                height=400,
-                margin=dict(l=150),
-                legend_title="Categories",
-                legend=dict(
-                    orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2
-                ),
-            )
+            # fig1.update_layout(
+            #     template="plotly_dark",
+            #     height=400,
+            #     margin=dict(l=150),
+            #     legend_title="Categories",
+            #     legend=dict(
+            #         orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2
+            #     ),
+            # )
 
-            fig1.update_traces(
-                textposition="inside",
-                textinfo="percent+label",
-                hovertemplate="<b>%{label}</b><br>Count: %{value}<br>",
-            )
-            selected_points = plotly_events(fig1, click_event=True, hover_event=False)
-            if selected_points:
-                selected_category = category_counts.index[selected_points[0]["pointNumber"]]
-                st.session_state["selected_categories"] = [selected_category]
-            elif "selected_categories" in st.session_state:
-                del st.session_state["selected_categories"]
+            # fig1.update_traces(
+            #     textposition="inside",
+            #     textinfo="percent+label",
+            #     hovertemplate="<b>%{label}</b><br>Count: %{value}<br>",
+            # )
+            # selected_points = plotly_events(fig1, click_event=True, hover_event=False)
+            # if selected_points:
+            #     selected_category = category_counts.index[selected_points[0]["pointNumber"]]
+            #     st.session_state["selected_categories"] = [selected_category]
+            # elif "selected_categories" in st.session_state:
+            #     del st.session_state["selected_categories"]
 
             country_counts = filtered_data["Country"].value_counts().reset_index()
             country_counts.columns = ["Country", "Count"]
