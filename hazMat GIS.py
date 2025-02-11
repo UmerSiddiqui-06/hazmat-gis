@@ -2178,8 +2178,8 @@ def main_display(user_type, user_email):
                 values=category_counts.values.tolist(),
                 names=category_counts.index.tolist(),
                 title="Distribution by Category",
-                color=category_counts.index.tolist(),
-                color_discrete_map=color_map,  # Use the dictionary directly
+                # color=category_counts.index.tolist(),
+                # color_discrete_map=color_map,  # Use the dictionary directly
             )
 
             fig1.update_layout(
