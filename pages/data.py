@@ -12,6 +12,7 @@ from docx import Document
 from io import BytesIO
 import streamlit as st
 
+
 # Set sidebar state to collapsed
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 hide_sidebar_css = """
@@ -51,7 +52,28 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-
+def custom_error(message):
+    st.markdown(
+        f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px 16px;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
+            font-weight: 700;
+            font-size: 16px;
+        ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" style="margin-right: 10px; flex-shrink: 0;" viewBox="0 0 16 16">
+                <path d="M8.982 1.566a1.5 1.5 0 0 0-1.964 0L.165 7.47a1.5 1.5 0 0 0 0 2.26l6.853 5.905a1.5 1.5 0 0 0 1.964 0l6.853-5.905a1.5 1.5 0 0 0 0-2.26L8.982 1.566zM8 5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 5.5zm0 6.25a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5z"/>
+            </svg>
+            {message}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 if "logged_in" not in st.session_state:
     st.switch_page("hazMat GIS.py")
 if st.session_state.logged_in:
@@ -63,6 +85,7 @@ if st.session_state.logged_in:
     if st.button("Go Back"):
         st.session_state.go_to_page = False
         st.switch_page("hazMat GIS.py")
+    
     def load_country_list(file_path):
         """Load the country list from a file."""
         with open(file_path, 'r') as file:
@@ -120,7 +143,7 @@ if st.session_state.logged_in:
             data["Coordinates"] = data["Coordinates"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else None)
             data = data.drop_duplicates()
         except Exception as e:
-            st.error(f"Error Occured while loading Data: {e}")
+            custom_error(f"Error Occured while loading Data: {e}")
             st.stop()
         return data
     @st.cache_data
