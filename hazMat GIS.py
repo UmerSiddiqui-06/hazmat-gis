@@ -2163,6 +2163,7 @@ def main_display(user_type, user_email):
             df_exploded = df.explode('Category', ignore_index=True)
             df_exploded['Category'] = df_exploded['Category'].str.strip()
             category_counts = df_exploded["Category"].value_counts()
+            st.write(category_counts)
             color_map = {
                 "Explosive": "black",
                 "Biological": "green",
