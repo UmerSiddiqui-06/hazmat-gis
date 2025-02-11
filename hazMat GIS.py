@@ -2160,13 +2160,12 @@ def main_display(user_type, user_email):
             
             folium_static(m, width=900, height=500)
             df = filtered_data.copy()
-            st.write(df["Category"])
+
             df['Category'] = df['Category'].str.split(',')
             df_exploded = df.explode('Category', ignore_index=True)
             df_exploded['Category'] = df_exploded['Category'].str.strip()
             category_counts = df_exploded["Category"].value_counts()
-            st.write(category_counts.index.tolist())
-            st.write(category_counts.values.tolist())
+
             color_map = {
                 "Explosive": "black",
                 "Biological": "green",
