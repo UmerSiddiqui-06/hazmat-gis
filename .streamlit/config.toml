@@ -1,7 +1,4 @@
-[client]
-showErrorDetails = "none"
-toolbarMode = "viewer"
-showSidebarNavigation = false
+
 [theme]
 base="dark"  # Options: "light", "dark"
 primaryColor="#1f77b4"  # Hex color for primary elements
@@ -9,11 +6,7 @@ backgroundColor="#0e1117"  # Background color
 secondaryBackgroundColor="#262730"  # Sidebar or secondary sections
 textColor="#ffffff"  # Text color
 font="sans serif"  # Options: "serif", "sans serif", or "monospace"
-[server]
-headless = true
 
-[logger]
-level = "error"
 
 
 
