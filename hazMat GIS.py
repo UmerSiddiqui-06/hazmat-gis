@@ -39,6 +39,17 @@ hide_sidebar_css = """
     </style>
 """
 st.markdown(hide_sidebar_css, unsafe_allow_html=True)
+import streamlit as st
+
+# Hide Streamlit warnings using markdown and CSS
+hide_warning = """
+    <style>
+        [data-testid="stAlertContainer"] {
+            display: none !important;
+        }
+    </style>
+"""
+st.markdown(hide_warning, unsafe_allow_html=True)
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
