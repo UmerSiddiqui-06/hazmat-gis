@@ -80,7 +80,7 @@ class sqlpy:
                 Severity VARCHAR(255),
                 Date VARCHAR(255)            
                 );""")
-        self.cursor.execute("DROP TABLE gpt_history")
+
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS gpt_history(
                 email VARCHAR(255),
                 link TEXT,
