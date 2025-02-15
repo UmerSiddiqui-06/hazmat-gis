@@ -80,7 +80,7 @@ class sqlpy:
                 Severity VARCHAR(255),
                 Date VARCHAR(255)            
                 );""")
-        
+        self.cursor.execute("DROP TABLE gpt_history")
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS gpt_history(
                 email VARCHAR(255),
                 link TEXT,
@@ -92,14 +92,6 @@ class sqlpy:
                 Link VARCHAR(255),
                 Response TEXT
             );""")
-        
-        self.cursor.execute("SELECT * FROM gpt_history")
-        data = self.cursor.fetchone()
-        if not data:
-            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp","https://www.reuters.com/world/asia-pacific/unstable-nuclear-waste-dams-threaten-fertile-central-asia-heartland-2024-04-23/","temp","11:19"))
-            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:20"))
-            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:21"))
-            self.cursor.execute("INSERT INTO gpt_history (email,link,title,time) VALUES (?,?,?,?)",("temp4","https://www.cbsnews.com/sacramento/news/large-explosions-reported-near-sikh-temple-in-south-sacramento-area/","temp","11:22"))
         
         
         self.cursor.execute('SELECT * FROM users')
@@ -119,6 +111,7 @@ class sqlpy:
         admin_password = bcrypt.hashpw("0000".encode('utf-8'), bcrypt.gensalt())
         if not data:
             self.cursor.execute("INSERT INTO admin (email, password, chatgpt, chatgpt_limit) VALUES (?, ?, ?, ?)", ('admin', admin_password,1,5))
+
         self.conn.commit()
 
     def get_status(self,email):
