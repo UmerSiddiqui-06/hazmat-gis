@@ -191,6 +191,7 @@ if st.session_state.logged_in:
     def render_aggrid_data(df_display, user_type, user_email):
         full_data = df_display.copy()
         gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
+        # gb.configure_grid_options(suppressSizeToFit=False)  # Ensures autosizing
         gb.configure_column("Category")
         gb.configure_column("Title")
         gb.configure_column("Country")
@@ -201,9 +202,9 @@ if st.session_state.logged_in:
         gb.configure_column("Injuries")
         gb.configure_column("Full Link")
         gb.configure_column("Severity")
-        gb.configure_default_column(
-            editable=False, groupable=True,flex=1
-        )
+        # gb.configure_default_column(
+        # #     editable=False, groupable=True,flex=1
+        # # )
         if user_type == "admin":
             gb.configure_column("Coordinates")
 
@@ -242,7 +243,7 @@ if st.session_state.logged_in:
             allow_unsafe_jscode=True,
             height=800,
             theme="streamlit",
-            fit_columns_on_grid_load=True,
+            # fit_columns_on_grid_load=True,
         )
         
         selected_row = grid_response.get("selected_rows", [])

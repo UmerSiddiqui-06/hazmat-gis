@@ -67,7 +67,7 @@ def render_aggrid(df_display,filename="temp"):
     gb.configure_selection("single", use_checkbox=True)
 
     gb.configure_default_column(editable=True)
-    gb.configure_default_column(flex=1)
+    # gb.configure_default_column(flex=1)
     gb.configure_column(
         "Full Link",
         headerName="Link",
@@ -97,7 +97,7 @@ def render_aggrid(df_display,filename="temp"):
         allow_unsafe_jscode=True,
         height=800,
         theme="streamlit",
-        fit_columns_on_grid_load=True,
+        # fit_columns_on_grid_load=True,
     )
 
     if grid_response['data'] is not None:
