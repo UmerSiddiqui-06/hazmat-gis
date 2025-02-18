@@ -3,7 +3,12 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import time
 import pandas as pd
+import os
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+from streamlit_cookies_manager import EncryptedCookieManager
+cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
+if not cookies.ready():
+    st.stop()
 hide_sidebar_css = """
     <style>
         ul[data-testid="stSidebarNavItems"] {display: none !important;} /* Hide sidebar page links */
@@ -42,12 +47,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-if "filename" not in st.session_state or "selected_file" not in st.session_state:
-    st.switch_page("hazMat GIS.py")
 def render_aggrid(df_display,filename="temp"):
     if st.button("Go Back"):
-        st.session_state.admin_data = False
-        st.switch_page("hazMat GIS.py")
+        st.session_state.page = "admin_panel"
+        cookies["page"] = "admin_panel"
+        cookies.save()
+        st.switch_page("pages/admin_panel.py")
     df_display["Date"] = pd.to_datetime(df_display["Date"]).dt.strftime('%Y-%m-%d')
     full_data = df_display.copy()
     gb = GridOptionsBuilder.from_dataframe(df_display, editable=True)
@@ -124,5 +129,20 @@ def render_aggrid(df_display,filename="temp"):
                 st.rerun()
 
     return grid_response.get("selected_rows", [])
-
-render_aggrid(st.session_state.selected_file,st.session_state.filename)
+@st.cache_data
+def load_excel_files():
+    excel_files = {}
+    for file_name in os.listdir("/var/data"):
+        if file_name.endswith((".xlsx", ".xls")):
+            file_path = os.path.join("/var/data", file_name)
+            excel_files[file_name] = pd.read_excel(file_path)
+    return excel_files
+st.session_state.user_type = cookies.get("user_type")
+if "user_type" in st.session_state and st.session_state.user_type=="admin":
+    st.session_state.filename = cookies.get("filename")
+    excel_files = load_excel_files()
+    st.session_state.selected_file = excel_files[st.session_state.filename]
+    
+    render_aggrid(st.session_state.selected_file,st.session_state.filename)
+else:
+    st.switch_page("pages/login.py")
