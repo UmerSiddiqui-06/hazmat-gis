@@ -317,7 +317,7 @@ def render_aggrid_data(df_display, user_type, user_email):
         allow_unsafe_jscode=True,
         height=400,
         theme="streamlit",
-        fit_columns_on_grid_load=True,
+        # fit_columns_on_grid_load=True,
     )
 
     selected_row = grid_response.get("selected_rows", [])

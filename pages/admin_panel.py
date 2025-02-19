@@ -162,7 +162,7 @@ def render_aggrid(df_display, user_type, filename="temp"):
         allow_unsafe_jscode=True,
         height=400,
         theme="streamlit",
-        fit_columns_on_grid_load=True,
+        # fit_columns_on_grid_load=True,
     )
     if user_type == "admin" and filename != "temp":
         if grid_response["data"] is not None:
