@@ -75,9 +75,9 @@ def login_page():
                 custom_warning("Please enter password")
                 custom_warning("Please enter password")
             else:
-                is_admin = conn.check_login_admin(email, password)
-                is_user = conn.check_login_user(email, password)
-                if is_admin:
+
+                is_user,is_admin = conn.check_login(email, password)
+                if is_user == "Accepted" and is_admin:
                     st.session_state.logged_in = True
                     cookies["logged_in"] = "True"
                     cookies["user_type"] = "admin"
@@ -92,7 +92,7 @@ def login_page():
                         show_toast("This is a custom toast notification!")
                     time.sleep(2)
                     st.switch_page("pages/main_display.py")
-                elif is_user == "Accepted":
+                elif is_user == "Accepted" and not is_admin:
                     conn.add_new_login(email)
                     st.session_state.user_email = email
                     st.session_state.logged_in = True

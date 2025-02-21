@@ -428,6 +428,7 @@ def admin_panel():
                     "ChatGPT Usage Limit",
                     "Stopped Since",
                     "gptlimittype",
+                    "is_admin"
                 ],
             )
             df = df[["ID", "Email", "Status"]]
@@ -621,6 +622,7 @@ def admin_panel():
                 "ChatGpt_limit",
                 "Stopped Since",
                 "gptlimittype",
+                "is_admin"
             ],
         )
         emails = list(emails["Email"])
