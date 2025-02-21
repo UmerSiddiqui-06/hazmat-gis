@@ -1,5 +1,7 @@
 import streamlit as st
 from custom_warnings import custom_error
+st.set_page_config(
+    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
 def rejected_page():
     columns = st.columns((2, 6, 2))
     with columns[1]:
