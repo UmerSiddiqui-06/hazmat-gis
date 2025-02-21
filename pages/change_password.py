@@ -28,9 +28,7 @@ def change_password(email):
             current_password = st.text_input("Current Password", type="password")
             new_password = st.text_input("New Password", type="password")
             confirm_password = st.text_input("Confirm Password", type="password")
-            is_user = conn.check_login_user(email, current_password)
-
-            is_admin = conn.check_login_admin(email, current_password)
+            is_present = conn.check_login(email, current_password)
             columns = st.columns((2.7, 4, 1.5))
             with columns[0]:
                 update_password = st.button("Update Password")
@@ -44,23 +42,12 @@ def change_password(email):
                 st.rerun()
 
             elif update_password:
-                if is_user:
+                if is_present:
                     if new_password != confirm_password:
                         custom_warning("Passwords do not match!")
                     else:
                         if valid_password(new_password):
-                            conn.update_password_users(email, new_password)
-                            st.success("Password updated successfully!")
-                        else:
-                            custom_warning(
-                                "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 8 characters."
-                            )
-                elif is_admin:
-                    if new_password != confirm_password:
-                        custom_warning("Passwords do not match!")
-                    else:
-                        if valid_password(new_password):
-                            conn.update_password_admin(email, new_password)
+                            conn.update_password(email, new_password)
                             st.success("Password updated successfully!")
                         else:
                             custom_warning(
