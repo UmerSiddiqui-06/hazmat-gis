@@ -231,6 +231,7 @@ def display_col1():
                 "ChatGpt_limit",
                 "Stopped Since",
                 "gptlimittype",
+                "is_admin"
             ],
         )
 
@@ -263,6 +264,7 @@ def display_col1():
                 "ChatGpt_used",
                 "Stopped Since",
                 "gptlimittype",
+                "is_admin"
             ],
             axis=1,
         )
