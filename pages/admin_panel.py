@@ -7,7 +7,7 @@ from streamlit_modal import Modal
 import os
 import utitlity
 from io import BytesIO
-from streamlit_cookies_manager import EncryptedCookieManager
+
 from docx import Document
 from geopy.geocoders import Nominatim
 from rapidfuzz import process
@@ -16,7 +16,7 @@ from custom_warnings import custom_error,custom_warning
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
 )
-
+from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
