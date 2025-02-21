@@ -187,9 +187,12 @@ def render_aggrid_data(df_display, user_type, user_email):
     gb.configure_column("Injuries")
     gb.configure_column("Full Link")
     gb.configure_column("Severity")
-    # gb.configure_default_column(
-    # #     editable=False, groupable=True,flex=1
-    # # )
+    gb.configure_default_column(
+    flex=1,
+    minWidth=100,
+    maxWidth=500000,
+    resizable=True,
+)
     if user_type == "admin":
         gb.configure_column("Coordinates")
 
