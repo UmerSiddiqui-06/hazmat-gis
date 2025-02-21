@@ -16,6 +16,7 @@ from custom_warnings import custom_error,custom_warning
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
 )
+
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
@@ -303,6 +304,7 @@ def display_col1():
             """,
             unsafe_allow_html=True,
         )
+        df["ID"] = range(1, len(df) + 1)
         # Iterate over the DataFrame rows
         for i, row in df.iterrows():
             col31, col32, col33, col34, col35, col36 = st.columns((1, 3, 2, 2, 2, 1))
