@@ -17,25 +17,25 @@ class sqlpy:
             return None
         self.cursor = self.conn.cursor()
         password = bcrypt.hashpw("0000".encode("utf-8"), bcrypt.gensalt())
-        self.cursor.execute("DROP TABLE IF EXISTS admin")
+        # self.cursor.execute("DROP TABLE IF EXISTS admin")
 
-        self.cursor.execute("""
-            CREATE TABLE gpt_limit (
-                chatgpt BOOL,
-                ChatGpt_limit INTEGER
-            )
-        """)
+        # self.cursor.execute("""
+        #     CREATE TABLE gpt_limit (
+        #         chatgpt BOOL,
+        #         ChatGpt_limit INTEGER
+        #     )
+        # """)
 
-        self.cursor.execute("INSERT INTO gpt_limit (chatgpt, ChatGpt_limit) VALUES (1, 5)")
+        # self.cursor.execute("INSERT INTO gpt_limit (chatgpt, ChatGpt_limit) VALUES (1, 5)")
 
-        self.cursor.execute("ALTER TABLE users ADD COLUMN is_admin BOOL DEFAULT 0")
+        # self.cursor.execute("ALTER TABLE users ADD COLUMN is_admin BOOL DEFAULT 0")
 
-        self.cursor.execute("""
-            INSERT INTO users (user_id, email, password, chatgpt, status, ChatGpt_used, last_reset_date, ChatGpt_limit, chatgptlimittype, is_admin) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (0, 'admin', password, 1, 'Accepted', 0, datetime.now(), 5, 'default', 1))
+        # self.cursor.execute("""
+        #     INSERT INTO users (user_id, email, password, chatgpt, status, ChatGpt_used, last_reset_date, ChatGpt_limit, chatgptlimittype, is_admin) 
+        #     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        # """, (0, 'admin', password, 1, 'Accepted', 0, datetime.now(), 5, 'default', 1))
 
-        self.conn.commit()
+        # self.conn.commit()
         # Create the users table
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS users (
