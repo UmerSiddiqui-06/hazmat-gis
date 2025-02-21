@@ -6,6 +6,8 @@ import time
 import string
 import random
 from custom_warnings import custom_error
+st.set_page_config(
+    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
 conn = utitlity.sqlpy()
 if not conn:
     st.stop()

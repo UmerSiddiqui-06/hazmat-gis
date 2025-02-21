@@ -4,6 +4,8 @@ import yagmail
 import json
 import time
 from custom_warnings import custom_error
+st.set_page_config(
+    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
