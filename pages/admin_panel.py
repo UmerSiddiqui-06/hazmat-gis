@@ -153,12 +153,17 @@ def render_aggrid(df_display, user_type, filename="temp"):
         """
         ),
     )
+    gb.configure_default_column(
+    flex=1,
+    minWidth=100,
+    maxWidth=500000,
+    resizable=True,
+)
     grid_options = gb.build()
 
     grid_response = AgGrid(
         df_display,
         gridOptions=grid_options,
-        updateMode=GridUpdateMode.MODEL_CHANGED,
         allow_unsafe_jscode=True,
         height=400,
         theme="streamlit",
