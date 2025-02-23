@@ -226,23 +226,30 @@ class sqlpy:
         else:
             return None
 
-    def change_admin(self, email):
-        # Fetch the current is_admin value
-        self.cursor.execute("SELECT is_admin FROM users WHERE email = ?", (email,))
+    def change_admin(self, user_id):
+        # Fetch the email and is_admin value
+        self.cursor.execute("SELECT email, is_admin FROM users WHERE user_id = ?", (user_id,))
         result = self.cursor.fetchone()
 
         if result is not None:
-            current_status = result[0]
+            email, current_status = result
+
+            # If email is 'admin', do nothing and return
+            if email == "admin":
+                print("Cannot change admin status for the main admin user.")
+                return
+
             new_status = 0 if current_status else 1  # Toggle boolean (0 ⇄ 1)
 
             # Update the is_admin column
             self.cursor.execute(
-                "UPDATE users SET is_admin = ? WHERE email = ?", (new_status, email)
+                "UPDATE users SET is_admin = ? WHERE user_id = ?", (new_status, user_id)
             )
             self.conn.commit()
-            print(f"Admin status updated for {email}: {current_status} -> {new_status}")
+            print(f"Admin status updated for {user_id}: {current_status} -> {new_status}")
         else:
-            print(f"No user found with email: {email}")
+            print(f"No user found with user_id: {user_id}")
+
 
     def get_gpt_history(self):
         self.cursor.execute("SELECT * FROM gpt_history")
@@ -334,12 +341,10 @@ class sqlpy:
 
         if not data:
             # Email does not exist in the database
-            return None
+            return None, None
 
         # Extract the hashed password from the database
-        stored_hashed_password = data[
-            2
-        ]  # Assuming the password is stored in the third column
+        stored_hashed_password = data[2]  # Assuming the password is stored in the third column
 
         # Verify the input password with the stored hashed password
         if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password):
@@ -354,17 +359,35 @@ class sqlpy:
         return data
 
     def change_status(self, user_id):
-        self.cursor.execute("SELECT status FROM users WHERE user_id = ?", (user_id,))
-        already_status = self.cursor.fetchone()[0]
-        if already_status == "Rejected" or already_status == "Pending":
+        # Fetch the email and status of the user
+        self.cursor.execute("SELECT email, status FROM users WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+
+        if result is not None:
+            email, already_status = result
+
+            # If email is 'admin', do nothing and return
+            if email == "admin":
+                print("Cannot change status for the main admin user.")
+                return
+
+            if already_status in ["Rejected", "Pending"]:
+                new_status = "Accepted"
+            elif already_status == "Accepted":
+                new_status = "Rejected"
+            else:
+                print("Invalid status found.")
+                return
+
+            # Update the status column
             self.cursor.execute(
-                "UPDATE users SET status = ? WHERE user_id = ?", ("Accepted", user_id)
+                "UPDATE users SET status = ? WHERE user_id = ?", (new_status, user_id)
             )
-        elif already_status == "Accepted":
-            self.cursor.execute(
-                "UPDATE users SET status = ? WHERE user_id = ?", ("Rejected", user_id)
-            )
-        self.conn.commit()
+            self.conn.commit()
+            print(f"User {user_id} status updated: {already_status} -> {new_status}")
+        else:
+            print(f"No user found with user_id: {user_id}")
+
 
     def accept_user(self, user_id):
         self.cursor.execute(
@@ -430,18 +453,44 @@ class sqlpy:
         self.cursor.execute("SELECT chatgpt from gpt_limit")
         chatgpt = self.cursor.fetchone()[0]
         return chatgpt
+    def is_admin(self, email):
+        self.cursor.execute("SELECT is_admin FROM users WHERE email = ?", (email,))
+        result = self.cursor.fetchone()
+        
+        if result is not None:
+            return "admin" if result[0] == 1 else "user"
+        return "user"  # Default to "user" if email is not found
 
     def change_user_gpt_status(self, id):
-        self.cursor.execute("SELECT chatgpt FROM users WHERE user_id = ?", (id,))
-        chatgpt = self.cursor.fetchone()[0]
-        chatgpt = chatgpt ^ 1
-        self.cursor.execute("SELECT chatgpt_limit FROM gpt_limit")
-        limit = self.cursor.fetchone()[0]
-        self.cursor.execute(
-            "UPDATE users SET chatgpt = ?, chatgptlimittype = ?, ChatGpt_limit = ? WHERE user_id = ?",
-            (chatgpt, "default", limit, id),
-        )
-        self.conn.commit()
+        # Fetch the email and chatgpt status of the user
+        self.cursor.execute("SELECT email, chatgpt FROM users WHERE user_id = ?", (id,))
+        result = self.cursor.fetchone()
+
+        if result is not None:
+            email, chatgpt = result
+
+            # If email is 'admin', do nothing and return
+            if email == "admin":
+                print("Cannot change GPT status for the main admin user.")
+                return
+
+            # Toggle chatgpt status (0 ⇄ 1)
+            chatgpt ^= 1
+
+            # Fetch the default GPT limit from gpt_limit table
+            self.cursor.execute("SELECT chatgpt_limit FROM gpt_limit")
+            limit = self.cursor.fetchone()[0]
+
+            # Update user's GPT status and limit
+            self.cursor.execute(
+                "UPDATE users SET chatgpt = ?, chatgptlimittype = ?, ChatGpt_limit = ? WHERE user_id = ?",
+                (chatgpt, "default", limit, id),
+            )
+            self.conn.commit()
+            print(f"User {id} GPT status updated: {chatgpt}")
+        else:
+            print(f"No user found with user_id: {id}")
+
 
     def get_user_gpt_status(self, email):
         self.cursor.execute("SELECT chatgpt FROM users WHERE email = ?", (email,))

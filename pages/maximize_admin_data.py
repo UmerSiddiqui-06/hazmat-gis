@@ -47,7 +47,7 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-
+PATH = "/var/data"
 def render_aggrid(df_display,filename="temp"):
     if st.button("Go Back"):
         st.session_state.page = "admin_panel"
@@ -109,7 +109,7 @@ def render_aggrid(df_display,filename="temp"):
         allow_unsafe_jscode=True,
         height=800,
         theme="streamlit",
-        # fit_columns_on_grid_load=True,
+        fit_columns_on_grid_load=False,
     )
 
     if grid_response['data'] is not None:
@@ -139,9 +139,9 @@ def render_aggrid(df_display,filename="temp"):
 @st.cache_data
 def load_excel_files():
     excel_files = {}
-    for file_name in os.listdir("/var/data"):
+    for file_name in os.listdir(f"{PATH}"):
         if file_name.endswith((".xlsx", ".xls")):
-            file_path = os.path.join("/var/data", file_name)
+            file_path = os.path.join(f"{PATH}", file_name)
             excel_files[file_name] = pd.read_excel(file_path)
     return excel_files
 st.session_state.user_type = cookies.get("user_type")

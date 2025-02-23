@@ -27,20 +27,11 @@ if not conn:
     st.stop()
 if cookies.get("logged_in") == "True":
     st.session_state.logged_in = True
+PATH = "/var/data"
 def move_to_change_password():
     st.session_state.page = "change_password"
     # st.rerun()
 
-
-def logout(user_type):
-    st.session_state.page = "Login"
-    st.session_state.logged_in = False
-    st.session_state.user_email = None
-    if user_type == "admin":
-        cookies["user_email"] = "False"
-        cookies["logged_in"] = "False"
-        cookies["page"] = "Login"
-        cookies.save()
     # st.rerun()
 def load_country_list(file_path):
     """Load the country list from a file."""
@@ -124,9 +115,9 @@ def load_data():
         dataframes = []
 
         # Iterate over all files in the folder
-        for file_name in os.listdir("/var/data"):
+        for file_name in os.listdir(f"{PATH}"):
             # Build the full file path
-            file_path = os.path.join("/var/data", file_name)
+            file_path = os.path.join(f"{PATH}", file_name)
 
             # Check if the file is an Excel file
             if file_name.endswith((".xlsx", ".xls")):
@@ -322,7 +313,7 @@ def render_aggrid_data(df_display, user_type, user_email):
         allow_unsafe_jscode=True,
         height=400,
         theme="streamlit",
-        # fit_columns_on_grid_load=True,
+        fit_columns_on_grid_load=False,
     )
 
     selected_row = grid_response.get("selected_rows", [])
@@ -503,12 +494,11 @@ def main_display(user_type, user_email):
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.session_state.user_type = None
-        if user_type == "admin":
-            cookies["user_email"] = "False"
-            cookies["logged_in"] = "False"
-            cookies["page"] = "Login"
-            cookies["user_type"] = "False"
-            cookies.save()
+        cookies["user_email"] = "False"
+        cookies["logged_in"] = "False"
+        cookies["page"] = "Login"
+        cookies["user_type"] = "False"
+        cookies.save()
 
     # Logout Handling
     st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
@@ -805,14 +795,16 @@ def main_display(user_type, user_email):
         custom_warning("Data Unavailable")
 
 if "logged_in" in st.session_state and st.session_state.logged_in:
-    st.session_state.user_type = cookies.get("user_type")
     st.session_state.user_email = cookies.get("user_email")
+    st.session_state.user_type = conn.is_admin(st.session_state.user_email)
+    print("admin ",st.session_state.user_type)
     if "page" not in st.session_state:
         st.session_state.page = "main_display"
         cookies["page"] = "main_display"
         cookies.save()
     if st.session_state.page == "maximize_data":
         st.switch_page("pages/maximize_data.py")
+    
     main_display(st.session_state.user_type, st.session_state.user_email)
 else:
     st.switch_page("pages/login_page.py")
