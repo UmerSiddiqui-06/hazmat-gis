@@ -327,7 +327,7 @@ def display_col1():
             col31, col32, col33, col34, col35, col36, col37 = st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 2, 1))
             id = row["ID"]
             with col31:
-                st.markdown(f"#### {id}", unsafe_allow_html=True)
+                st.markdown(f"#### {ID}", unsafe_allow_html=True)
                 ID += 1
             with col32:
                 st.write("")
