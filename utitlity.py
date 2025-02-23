@@ -234,7 +234,6 @@ class sqlpy:
 
         if result is not None:
             email, current_status = result
-
             # If email is 'admin', do nothing and return
             if email == "HazMat.GIS@gmail.com":
                 print("Cannot change admin status for the main admin user.")
@@ -368,7 +367,7 @@ class sqlpy:
             email, already_status = result
 
             # If email is 'admin', do nothing and return
-            if email == "admin":
+            if email == "HazMat.GIS@gmail.com":
                 print("Cannot change status for the main admin user.")
                 return
 
@@ -471,7 +470,7 @@ class sqlpy:
             email, chatgpt = result
 
             # If email is 'admin', do nothing and return
-            if email == "admin":
+            if email == "HazMat.GIS@gmail.com":
                 print("Cannot change GPT status for the main admin user.")
                 return
 
