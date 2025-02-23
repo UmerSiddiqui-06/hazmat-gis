@@ -31,6 +31,7 @@ class sqlpy:
             self.cursor.execute(
                 "INSERT INTO gpt_limit (chatgpt, chatgpt_limit) VALUES (?, ?)", (1, 5)
             )
+        self.cursor.execute("UPDATE users SET email = 'HazMat.GIS@gmail.com' WHERE email = 'admin'")
 
         # self.cursor.execute("INSERT INTO gpt_limit (chatgpt, ChatGpt_limit) VALUES (1, 5)")
 
@@ -235,7 +236,7 @@ class sqlpy:
             email, current_status = result
 
             # If email is 'admin', do nothing and return
-            if email == "admin":
+            if email == "HazMat.GIS@gmail.com":
                 print("Cannot change admin status for the main admin user.")
                 return
 
