@@ -58,7 +58,7 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-
+PATH = "/var/data"
 if cookies.get("logged_in") == "True":
     st.session_state.logged_in = True
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -111,9 +111,9 @@ def load_data():
         dataframes = []
         
         # Iterate over all files in the folder
-        for file_name in os.listdir("/var/data"):
+        for file_name in os.listdir(f"{PATH}"):
             # Build the full file path
-            file_path = os.path.join("/var/data", file_name)
+            file_path = os.path.join(f"{PATH}", file_name)
             
             # Check if the file is an Excel file
             if file_name.endswith(('.xlsx', '.xls')):
@@ -232,7 +232,7 @@ def render_aggrid_data(df_display, user_type, user_email):
         allow_unsafe_jscode=True,
         height=800,
         theme="streamlit",
-        # fit_columns_on_grid_load=True,
+        fit_columns_on_grid_load=False,
     )
     
     selected_row = grid_response.get("selected_rows", [])

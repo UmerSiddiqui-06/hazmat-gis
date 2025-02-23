@@ -20,11 +20,14 @@ from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
-if cookies.get("user_type") == "admin":
-    st.session_state.user_type = "admin"
 conn = utitlity.sqlpy()
 if not conn:
     st.stop()
+if cookies.get("user_type") == "admin":
+    st.session_state.user_email = cookies.get("user_email")
+    st.session_state.user_type = conn.is_admin(st.session_state.user_email)
+
+PATH = "/var/data"
 @st.cache_data
 def load_world_cities():
     return pd.read_csv("worldcities.csv")
@@ -113,7 +116,14 @@ def toggle_change_callback_status(user_id, toggle_key):
         # Update the toggle state in session and the database
         st.session_state.toggle_states_status[toggle_key] = st.session_state[toggle_key]
         conn.change_status(user_id)
-
+def toggle_change_user_admin(user_id,toggle_key):
+    if (
+        st.session_state[toggle_key]
+        != st.session_state.is_admin_user[toggle_key]
+    ):
+        # Update the toggle state in session and the database
+        st.session_state.is_admin_user[toggle_key] = st.session_state[toggle_key]
+        conn.change_admin(user_id)
 def render_aggrid(df_display, user_type, filename="temp"):
     df_display["Date"] = pd.to_datetime(df_display["Date"]).dt.strftime("%Y-%m-%d")
     full_data = df_display.copy()
@@ -168,7 +178,7 @@ def render_aggrid(df_display, user_type, filename="temp"):
         allow_unsafe_jscode=True,
         height=400,
         theme="streamlit",
-        # fit_columns_on_grid_load=True,
+        fit_columns_on_grid_load=False,
     )
     if user_type == "admin" and filename != "temp":
         if grid_response["data"] is not None:
@@ -255,7 +265,7 @@ def display_col1():
             0 if row in ["Pending", "Rejected"] else 1 for row in login_status
         ]
         gptlimit = df["ChatGpt_limit"]
-
+        is_admin = df["is_admin"]
         df = df.drop(
             [
                 "Password",
@@ -286,9 +296,12 @@ def display_col1():
             st.session_state.gpt_limit_state = {
                 f"number{i}": gptlimit.iloc[i] for i in range(len(users))
             }
+            st.session_state.is_admin_user = {
+                f"ia{i}": is_admin.iloc[i] for i in range(len(users))
+            }
         # Display header
-        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6 = (
-            st.columns((1, 3, 2, 2, 2, 1))
+        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7 = (
+            st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 2, 1))
         )
         with header_col1:
             st.markdown("#### ID")
@@ -297,8 +310,10 @@ def display_col1():
         with header_col3:
             st.markdown("#### Access")
         with header_col4:
-            st.markdown("#### GPT Access")
+            st.markdown("#### GPT")
         with header_col5:
+            st.markdown("#### Admin")
+        with header_col6:
             st.markdown("#### GPT Limit")
         st.markdown(
             """
@@ -306,13 +321,14 @@ def display_col1():
             """,
             unsafe_allow_html=True,
         )
-        df["ID"] = range(1, len(df) + 1)
+        ID = 1
         # Iterate over the DataFrame rows
         for i, row in df.iterrows():
-            col31, col32, col33, col34, col35, col36 = st.columns((1, 3, 2, 2, 2, 1))
+            col31, col32, col33, col34, col35, col36, col37 = st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 2, 1))
             id = row["ID"]
             with col31:
-                st.markdown(f"#### {row['ID']}", unsafe_allow_html=True)
+                st.markdown(f"#### {id}", unsafe_allow_html=True)
+                ID += 1
             with col32:
                 st.write("")
                 st.markdown(f"###### {row['Email']}", unsafe_allow_html=True)
@@ -338,6 +354,16 @@ def display_col1():
                 )
             with col35:
                 # st.write("")
+                toggle_key_1 = f"ia{i}"
+                st.toggle(
+                    "Off / On",
+                    value=st.session_state.is_admin_user[toggle_key_1],
+                    key=toggle_key_1,
+                    on_change=toggle_change_user_admin,
+                    args=(id, toggle_key_1),
+                )
+            with col36:
+                # st.write("")
                 number_key = f"number{i}"
                 st.number_input(
                     " ",
@@ -350,7 +376,7 @@ def display_col1():
                     args=(id, number_key),
                     min_value=0,
                 )
-            with col36:
+            with col37:
                 # st.write("")
                 if st.button("🗑️", key=f"delete_{i}"):
                     st.session_state.show_modal = True
@@ -1134,7 +1160,7 @@ def admin_panel():
                         final_df["Impact"] = final_df["Impact"].str.strip()
                         final_df = final_df.drop_duplicates()
                         new_data = preprocess_data(final_df)
-                        new_data.to_excel(f"/var/data/{filename}", index=False)
+                        new_data.to_excel(f"{PATH}/{filename}", index=False)
                         st.success("Data concatenated successfully")
                         # Provide download button for rejected rows
                         dcol, icol = st.columns(2)
@@ -1157,9 +1183,9 @@ def admin_panel():
 
         excel_files = {}
         try:
-            for file_name in os.listdir("/var/data"):
+            for file_name in os.listdir(f"{PATH}"):
                 if file_name.endswith((".xlsx", ".xls")):
-                    file_path = os.path.join("/var/data", file_name)
+                    file_path = os.path.join(f"{PATH}", file_name)
                     excel_files[file_name] = pd.read_excel(file_path)
 
             if not excel_files:
@@ -1208,7 +1234,7 @@ def admin_panel():
                             if st.button("🗑️ Delete"):
                                 st.session_state.confirm_delete = True
                                 st.session_state.file_to_delete = (
-                                    "/var/data/" + selected_file
+                                    f"{PATH}/" + selected_file
                                 )
                         with col3:
 
@@ -1256,4 +1282,4 @@ if "user_type" in st.session_state and st.session_state.user_type=="admin":
 
     admin_panel()
 else:
-    st.switch_page("pages/login.py")
+    st.switch_page("pages/login_page.py")
