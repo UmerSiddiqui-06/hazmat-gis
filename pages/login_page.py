@@ -60,7 +60,7 @@ def login_page():
         st.header("HazMat GIS - Login")
     with st.container(border=True):
         # Login form
-        email = st.text_input("Email")
+        email = st.text_input("Email").lower()
         password = st.text_input("Password", type="password")
 
         # Forget Password and Register buttons
