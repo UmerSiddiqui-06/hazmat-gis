@@ -215,6 +215,7 @@ class sqlpy:
 
         
 
+        self.cursor.execute("UPDATE users SET email = LOWER(email)")
 
         self.conn.commit()
 
@@ -320,7 +321,7 @@ class sqlpy:
             "INSERT INTO users (user_id, email, password, chatgpt, status, ChatGpt_used, ChatGpt_limit, last_reset_date, chatgptlimittype,is_admin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 new_id,
-                email,
+                email.lower(),
                 password,
                 0,
                 "Pending",
@@ -336,7 +337,7 @@ class sqlpy:
 
     def check_login(self, email, input_password):
         # Fetch the stored hashed password for the given email
-        self.cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        self.cursor.execute("SELECT * FROM users WHERE email = ?", (email.lower(),))
         data = self.cursor.fetchone()
 
         if not data:
