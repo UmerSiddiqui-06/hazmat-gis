@@ -502,7 +502,7 @@ def main_display(user_type, user_email):
 
     # Logout Handling
     st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
-
+    st.write(conn.get_users())
     # Perform conditional rendering based on the updated state
     data = load_data()
     if data is not None:
