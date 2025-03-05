@@ -4,7 +4,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import time
 import pandas as pd
 import os
-from db_path import db_path
+from pages.db_path import db_path
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="collapsed",layout="wide")
 from streamlit_cookies_manager import EncryptedCookieManager

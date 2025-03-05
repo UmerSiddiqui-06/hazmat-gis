@@ -15,7 +15,7 @@ from docx import Document
 from io import BytesIO
 import ast
 from custom_warnings import custom_error, custom_warning
-from db_path import db_path
+from pages.db_path import db_path
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
 )
