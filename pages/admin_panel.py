@@ -12,7 +12,7 @@ from docx import Document
 from geopy.geocoders import Nominatim
 from rapidfuzz import process
 import time
-from db_path import db_path
+from pages.db_path import db_path
 from custom_warnings import custom_error,custom_warning
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
