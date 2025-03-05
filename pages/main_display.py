@@ -15,6 +15,7 @@ from docx import Document
 from io import BytesIO
 import ast
 from custom_warnings import custom_error, custom_warning
+from db_path import db_path
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
 )
@@ -27,7 +28,7 @@ if not conn:
     st.stop()
 if cookies.get("logged_in") == "True":
     st.session_state.logged_in = True
-PATH = "/var/data"
+PATH = db_path()
 def move_to_change_password():
     st.session_state.page = "change_password"
     # st.rerun()

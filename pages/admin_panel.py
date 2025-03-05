@@ -12,6 +12,7 @@ from docx import Document
 from geopy.geocoders import Nominatim
 from rapidfuzz import process
 import time
+from db_path import db_path
 from custom_warnings import custom_error,custom_warning
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
@@ -27,7 +28,7 @@ if cookies.get("user_type") == "admin":
     st.session_state.user_email = cookies.get("user_email")
     st.session_state.user_type = conn.is_admin(st.session_state.user_email)
 
-PATH = "/var/data"
+PATH = db_path()
 @st.cache_data
 def load_world_cities():
     return pd.read_csv("worldcities.csv")

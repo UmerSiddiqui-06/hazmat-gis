@@ -12,7 +12,7 @@ from docx import Document
 from io import BytesIO
 import streamlit as st
 from custom_warnings import custom_error
-
+from db_path import db_path
 
 # Set sidebar state to collapsed
 st.set_page_config(
@@ -58,7 +58,7 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-PATH = "/var/data"
+PATH = db_path()
 if cookies.get("logged_in") == "True":
     st.session_state.logged_in = True
 if "logged_in" not in st.session_state or not st.session_state.logged_in:

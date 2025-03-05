@@ -4,6 +4,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import time
 import pandas as pd
 import os
+from db_path import db_path
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="collapsed",layout="wide")
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -47,7 +48,7 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-PATH = "/var/data"
+PATH = db_path()
 def render_aggrid(df_display,filename="temp"):
     if st.button("Go Back"):
         st.session_state.page = "admin_panel"
