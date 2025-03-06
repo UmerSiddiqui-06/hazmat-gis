@@ -8,7 +8,7 @@ class sqlpy:
     def __init__(self): 
         try:
             self.conn = sqlite3.connect(
-                "/var/data/my_database.db", check_same_thread=False
+                "var/data/my_database.db", check_same_thread=False
             )
         except:
             custom_error("Unable to load Database")
@@ -16,6 +16,12 @@ class sqlpy:
         self.cursor = self.conn.cursor()
         password = bcrypt.hashpw("0000".encode("utf-8"), bcrypt.gensalt())
         # self.cursor.execute("DROP TABLE IF EXISTS admin")
+        
+        self.cursor.execute("PRAGMA table_info(gpt_limit)")
+        columns = [column[1] for column in self.cursor.fetchall()]
+        if "enable_download" not in columns:
+            self.cursor.execute("ALTER TABLE gpt_limit ADD COLUMN enable_download BOOL DEFAULT 0")
+            self.conn.commit()
         self.cursor.execute(
            """CREATE TABLE IF NOT EXISTS gpt_limit (
             chatgpt BOOL,
@@ -24,7 +30,7 @@ class sqlpy:
            );"""
            )
         self.conn.commit()
-
+      
         self.cursor.execute("SELECT * FROM gpt_limit")
         data = self.cursor.fetchone()
         if not data:
