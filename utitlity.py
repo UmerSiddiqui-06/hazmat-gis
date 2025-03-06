@@ -8,7 +8,7 @@ class sqlpy:
     def __init__(self): 
         try:
             self.conn = sqlite3.connect(
-                "var/data/my_database.db", check_same_thread=False
+                "/var/data/my_database.db", check_same_thread=False
             )
         except:
             custom_error("Unable to load Database")
