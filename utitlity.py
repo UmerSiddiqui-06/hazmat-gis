@@ -2,15 +2,13 @@ import sqlite3
 from datetime import datetime, timedelta
 import bcrypt
 from dateutil.relativedelta import relativedelta
-import streamlit as st
 from custom_warnings import custom_error
 
-
 class sqlpy:
-    def __init__(self):
+    def __init__(self): 
         try:
             self.conn = sqlite3.connect(
-                "/var/data/my_database.db", check_same_thread=False
+                "var/data/my_database.db", check_same_thread=False
             )
         except:
             custom_error("Unable to load Database")
@@ -18,19 +16,22 @@ class sqlpy:
         self.cursor = self.conn.cursor()
         password = bcrypt.hashpw("0000".encode("utf-8"), bcrypt.gensalt())
         # self.cursor.execute("DROP TABLE IF EXISTS admin")
+        self.cursor.execute(
+           """CREATE TABLE IF NOT EXISTS gpt_limit (
+            chatgpt BOOL,
+           chatgpt_limit INTEGER,
+           enable_download BOOL DEFAULT 0  -- New column for download toggle
+           );"""
+           )
+        self.conn.commit()
 
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS gpt_limit (
-                chatgpt BOOL,
-                ChatGpt_limit INTEGER
-            )
-        """)
         self.cursor.execute("SELECT * FROM gpt_limit")
         data = self.cursor.fetchone()
         if not data:
             self.cursor.execute(
                 "INSERT INTO gpt_limit (chatgpt, chatgpt_limit) VALUES (?, ?)", (1, 5)
             )
+            self.conn.commit() 
         # self.cursor.execute("UPDATE users SET email = 'HazMat.GIS@gmail.com' WHERE email = 'admin'")
 
         # self.cursor.execute("INSERT INTO gpt_limit (chatgpt, ChatGpt_limit) VALUES (1, 5)")
@@ -44,6 +45,7 @@ class sqlpy:
 
         # self.conn.commit()
         # Create the users table
+        
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER,
@@ -75,10 +77,12 @@ class sqlpy:
         # Create the gpt_limit table
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS gpt_limit (
-                chatgpt BOOL,
-                chatgpt_limit INTEGER            
-                );"""
-        )
+            chatgpt BOOL,
+            chatgpt_limit INTEGER,
+            enable_download BOOL DEFAULT 0  -- New column for download toggle
+           );"""
+          )
+
 
         # Create the login_history table
         self.cursor.execute(
@@ -448,6 +452,19 @@ class sqlpy:
         chatgpt = self.cursor.fetchone()[0]
         chatgpt = chatgpt ^ 1
         self.cursor.execute("UPDATE gpt_limit SET chatgpt = ? ", (chatgpt,))
+        self.conn.commit()
+    def get_download_status(self):
+        """Fetch the current download status (enabled/disabled)."""
+        self.cursor.execute("SELECT enable_download FROM gpt_limit")
+        result = self.cursor.fetchone()
+        return result[0] if result else 0  # Default to disabled
+
+    def change_download_status(self):
+        """Toggle the download status (Enable/Disable)."""
+        self.cursor.execute("SELECT enable_download FROM gpt_limit")
+        current_status = self.cursor.fetchone()[0]
+        new_status = 1 if current_status == 0 else 0  # Toggle between 0 and 1
+        self.cursor.execute("UPDATE gpt_limit SET enable_download = ?", (new_status,))
         self.conn.commit()
 
     def get_gpt_status(self):
