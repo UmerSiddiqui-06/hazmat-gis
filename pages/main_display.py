@@ -40,6 +40,9 @@ def load_country_list(file_path):
         countries = [line.strip() for line in file.readlines()]
     return countries
 
+@st.cache_data
+def get_download_status():
+    return conn.get_download_status()
 
 @st.cache_data
 def standardize_country_column(column):
@@ -761,15 +764,18 @@ def main_display(user_type, user_email):
                 date_filter,
             ]
             data_tab_cols = st.columns((8.6, 1.4))
+            download_status = conn.get_download_status()  # Fetch from the database
             with data_tab_cols[0]:
-                st.download_button(
-                    label="Download Data",
-                    data=csv,
-                    file_name="filtered_data.csv",
-                    mime="text/csv",
-                    on_click=add_download_history,
-                    args=[filters],
-                )
+                if download_status == 1:  # Show only if enabled in database
+                   st.download_button(
+                   label="Download Data",
+                   data=csv,
+                   file_name="filtered_data.csv",
+                   mime="text/csv",
+                   on_click=add_download_history,
+                   args=[filters],
+                   )
+
             with data_tab_cols[1]:
 
                 def go_to_page():
