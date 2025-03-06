@@ -23,15 +23,15 @@ class sqlpy:
         self.cursor.execute("DROP TABLE IF EXISTS gpt_limit")
         self.conn.commit()
 
-        # Recreate the table
-        self.cursor.execute(
-        """CREATE TABLE gpt_limit (
-        chatgpt BOOL,
-        chatgpt_limit INTEGER,
-        enable_download BOOL DEFAULT 0
-        );"""
-        )
-        self.conn.commit()
+        # # Recreate the table
+        # self.cursor.execute(
+        # """CREATE TABLE gpt_limit (
+        # chatgpt BOOL,
+        # chatgpt_limit INTEGER,
+        # enable_download BOOL DEFAULT 0
+        # );"""
+        # )
+        # self.conn.commit()
 
 # Insert default values
         self.cursor.execute(
