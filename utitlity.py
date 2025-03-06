@@ -8,36 +8,38 @@ class sqlpy:
     def __init__(self): 
         try:
             self.conn = sqlite3.connect(
-                "/var/data/my_database.db", check_same_thread=False
+                "var/data/my_database.db", check_same_thread=False
             )
         except:
             custom_error("Unable to load Database")
             return None
         self.cursor = self.conn.cursor()
         password = bcrypt.hashpw("0000".encode("utf-8"), bcrypt.gensalt())
-        # self.cursor.execute("DROP TABLE IF EXISTS admin")
         
-        self.cursor.execute("PRAGMA table_info(gpt_limit)")
-        columns = [column[1] for column in self.cursor.fetchall()]
-        if "enable_download" not in columns:
-            self.cursor.execute("ALTER TABLE gpt_limit ADD COLUMN enable_download BOOL DEFAULT 0")
-            self.conn.commit()
-        self.cursor.execute(
-           """CREATE TABLE IF NOT EXISTS gpt_limit (
-            chatgpt BOOL,
-           chatgpt_limit INTEGER,
-           enable_download BOOL DEFAULT 0  -- New column for download toggle
-           );"""
-           )
+
+
+        
+        # Delete the table if it exists
+        self.cursor.execute("DROP TABLE IF EXISTS gpt_limit")
         self.conn.commit()
-      
-        self.cursor.execute("SELECT * FROM gpt_limit")
-        data = self.cursor.fetchone()
-        if not data:
-            self.cursor.execute(
-                "INSERT INTO gpt_limit (chatgpt, chatgpt_limit) VALUES (?, ?)", (1, 5)
-            )
-            self.conn.commit() 
+
+        # Recreate the table
+        self.cursor.execute(
+        """CREATE TABLE gpt_limit (
+        chatgpt BOOL,
+        chatgpt_limit INTEGER,
+        enable_download BOOL DEFAULT 0
+        );"""
+        )
+        self.conn.commit()
+
+# Insert default values
+        self.cursor.execute(
+        "INSERT INTO gpt_limit (chatgpt, chatgpt_limit, enable_download) VALUES (?, ?, ?)", 
+        (1, 5, 0)
+        )
+        self.conn.commit()
+
         # self.cursor.execute("UPDATE users SET email = 'HazMat.GIS@gmail.com' WHERE email = 'admin'")
 
         # self.cursor.execute("INSERT INTO gpt_limit (chatgpt, ChatGpt_limit) VALUES (1, 5)")
@@ -80,14 +82,14 @@ class sqlpy:
                 ("temp4", True),
             )
 
-        # Create the gpt_limit table
-        self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS gpt_limit (
-            chatgpt BOOL,
-            chatgpt_limit INTEGER,
-            enable_download BOOL DEFAULT 0  -- New column for download toggle
-           );"""
-          )
+        # # Create the gpt_limit table
+        # self.cursor.execute(
+        #     """CREATE TABLE IF NOT EXISTS gpt_limit (
+        #     chatgpt BOOL,
+        #     chatgpt_limit INTEGER,
+        #     enable_download BOOL DEFAULT 0  -- New column for download toggle
+        #    );"""
+        #   )
 
 
         # Create the login_history table
