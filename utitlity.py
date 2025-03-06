@@ -33,12 +33,12 @@ class sqlpy:
         # )
         # self.conn.commit()
 
-# Insert default values
-        self.cursor.execute(
-        "INSERT INTO gpt_limit (chatgpt, chatgpt_limit, enable_download) VALUES (?, ?, ?)", 
-        (1, 5, 0)
-        )
-        self.conn.commit()
+# # Insert default values
+#         self.cursor.execute(
+#         "INSERT INTO gpt_limit (chatgpt, chatgpt_limit, enable_download) VALUES (?, ?, ?)", 
+#         (1, 5, 0)
+#         )
+#         self.conn.commit()
 
         # self.cursor.execute("UPDATE users SET email = 'HazMat.GIS@gmail.com' WHERE email = 'admin'")
 
