@@ -415,18 +415,6 @@ def admin_panel():
         )
         if chatgpt_toggle != chatgpt:
             conn.change_gpt_status()
-        # Get current download status from DB
-        download_status = conn.get_download_status()
-
-        # Toggle for enabling/disabling downloads
-        enable_download_toggle = st.toggle(
-        "Enable Download",
-        value=download_status,
-        help="Allow users to download files."
-        )
-                # Update status if changed
-        if enable_download_toggle != download_status:
-            conn.change_download_status()
         
 
         chatgpt_limit = conn.get_gpt_limit()
@@ -442,6 +430,18 @@ def admin_panel():
             conn.set_gpt_limit(gpt_limit)
             del st.session_state.gpt_limit_state
             st.rerun()
+                # Get current download status from DB
+        download_status = conn.get_download_status()
+
+        # Toggle for enabling/disabling downloads
+        enable_download_toggle = st.toggle(
+        "Enable Download",
+        value=download_status,
+        help="Allow users to download files."
+        )
+                # Update status if changed
+        if enable_download_toggle != download_status:
+            conn.change_download_status()
         # Add separator between sections for better readability
         st.sidebar.markdown("---")
     col1, col2, col3, col4, col5 = st.tabs(
