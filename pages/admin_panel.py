@@ -1056,13 +1056,18 @@ def admin_panel():
                             "Economic",
                             "Animal",
                         }
-                        valid_severity = {"Low", "Medium", "High"}
+                        valid_severity = {"Low", "Medium", "High","Other"}
 
                         # Function to check if any value in a comma-separated list is valid
                         def check_validity(value, valid_set):
-                            # Split the value by commas, strip whitespace, and check if any part is in the valid set
-                            values = {item.strip().title() for item in value.split(",")}
-                            return values.issubset(valid_set)
+                           # Convert valid_set values to lowercase
+                           valid_set = {item.lower() for item in valid_set}
+    
+                           # Split the value by commas, strip whitespace, and convert to lowercase
+                           values = {item.strip().lower() for item in value.split(",")}
+    
+                           # Check if all extracted values are in the valid set
+                           return values.issubset(valid_set)
 
                         # Apply the validity checks
                         new_data["Type_Valid"] = new_data["Type"].apply(
