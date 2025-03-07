@@ -1048,6 +1048,7 @@ def admin_panel():
                             "Radiological",
                             "Chemical",
                             "Nuclear",
+                            "Other",
                         }
                         valid_impact = {
                             "Infrastructure",
@@ -1056,7 +1057,7 @@ def admin_panel():
                             "Economic",
                             "Animal",
                         }
-                        valid_severity = {"Low", "Medium", "High","Other"}
+                        valid_severity = {"Low", "Medium", "High"}
 
                         # Function to check if any value in a comma-separated list is valid
                         def check_validity(value, valid_set):
