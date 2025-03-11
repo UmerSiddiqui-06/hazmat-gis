@@ -41,7 +41,15 @@ def forget_password():
                 if user:
                     # Generate a temporary password
                     temp_password = generate_temp_password()
-
+                    #set forgeted password
+                    import bcrypt
+                    hashed_password = bcrypt.hashpw(temp_password.encode('utf-8'), bcrypt.gensalt())
+                    try:
+                       conn.cursor.execute("UPDATE users SET password = ? WHERE email = ?", (hashed_password, email))
+                       conn.conn.commit()
+                    except Exception as e:
+                       custom_error(f"Failed to update password in database: {e}")
+                       return  # Stop execution if password update fails
                     # Send the temporary password using yagmail
                     try:
                         admin_email = "HazMat.GIS@gmail.com"
