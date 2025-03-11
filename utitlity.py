@@ -5,17 +5,16 @@ from dateutil.relativedelta import relativedelta
 from custom_warnings import custom_error
 
 class sqlpy:
-    def __init__(self):  # Corrected method name
+    def __init__(self): 
         try:
             self.conn = sqlite3.connect(
                 "/var/data/my_database.db", check_same_thread=False
             )
-        except Exception as e:
-            custom_error(f"Unable to load Database: {e}")
+        except:
+            custom_error("Unable to load Database")
             return None
         self.cursor = self.conn.cursor()
         password = bcrypt.hashpw("0000".encode("utf-8"), bcrypt.gensalt())
-        
         # Rest of the initialization code...
 
 
