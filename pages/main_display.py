@@ -764,7 +764,7 @@ def main_display(user_type, user_email):
                 date_filter,
             ]
             data_tab_cols = st.columns((8.6, 1.4))
-            download_status = conn.get_download_status()  # Fetch from the database
+            download_status = conn.get_user_download_status(user_email)  # Fetch from the database
             with data_tab_cols[0]:
                 if download_status == 1:  # Show only if enabled in database
                    st.download_button(

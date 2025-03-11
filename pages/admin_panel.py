@@ -242,7 +242,8 @@ def display_col1():
                 "ChatGpt_limit",
                 "Stopped Since",
                 "gptlimittype",
-                "is_admin"
+                "is_admin",
+                "allow_download"
             ],
         )
 
@@ -267,6 +268,8 @@ def display_col1():
         ]
         gptlimit = df["ChatGpt_limit"]
         is_admin = df["is_admin"]
+        allow_download = df["allow_download"]  # Fetch the allow_download status from the DataFrame
+
         df = df.drop(
             [
                 "Password",
@@ -275,7 +278,8 @@ def display_col1():
                 "ChatGpt_used",
                 "Stopped Since",
                 "gptlimittype",
-                "is_admin"
+                "is_admin",
+                "allow_download"  # Drop the column after fetching the status
             ],
             axis=1,
         )
@@ -300,9 +304,13 @@ def display_col1():
             st.session_state.is_admin_user = {
                 f"ia{i}": is_admin.iloc[i] for i in range(len(users))
             }
+            st.session_state.allow_download_states = {
+                f"ad{i}": allow_download.iloc[i] for i in range(len(users))
+            }
+
         # Display header
-        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7 = (
-            st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 2, 1))
+        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7, header_col8 = (
+            st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 1.5, 2, 1))
         )
         with header_col1:
             st.markdown("#### ID")
@@ -315,6 +323,8 @@ def display_col1():
         with header_col5:
             st.markdown("#### Admin")
         with header_col6:
+            st.markdown("#### Allow Download")
+        with header_col7:
             st.markdown("#### GPT Limit")
         st.markdown(
             """
@@ -325,16 +335,16 @@ def display_col1():
         ID = 1
         # Iterate over the DataFrame rows
         for i, row in df.iterrows():
-            col31, col32, col33, col34, col35, col36, col37 = st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 2, 1))
+            col31, col32, col33, col34, col35, col36, col37, col38 = st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 1.5, 2, 1))
             id = row["ID"]
+            email = row["Email"]  # Get the email for the current user
             with col31:
                 st.markdown(f"#### {ID}", unsafe_allow_html=True)
                 ID += 1
             with col32:
                 st.write("")
-                st.markdown(f"###### {row['Email']}", unsafe_allow_html=True)
+                st.markdown(f"###### {email}", unsafe_allow_html=True)
             with col34:
-                # st.write("")
                 toggle_key_1 = f"t{i}"
                 st.toggle(
                     "Off / On",
@@ -344,7 +354,6 @@ def display_col1():
                     args=(id, toggle_key_1),
                 )
             with col33:
-                # st.write("")
                 toggle_key = f"t1{i}"
                 st.toggle(
                     "Revoke / Grant",
@@ -354,7 +363,6 @@ def display_col1():
                     args=(id, toggle_key),
                 )
             with col35:
-                # st.write("")
                 toggle_key_1 = f"ia{i}"
                 st.toggle(
                     "Off / On",
@@ -364,7 +372,14 @@ def display_col1():
                     args=(id, toggle_key_1),
                 )
             with col36:
-                # st.write("")
+                toggle_key_2 = f"ad{i}"
+                st.toggle(
+                    "Off / On",
+                    value=st.session_state.allow_download_states[toggle_key_2],
+                    key=toggle_key_2,
+                    on_change=lambda user_id=id, email=email, key=toggle_key_2: toggle_change_callback_download(user_id, email, key),
+                )
+            with col37:
                 number_key = f"number{i}"
                 st.number_input(
                     " ",
@@ -377,11 +392,10 @@ def display_col1():
                     args=(id, number_key),
                     min_value=0,
                 )
-            with col37:
-                # st.write("")
-                if st.button("🗑️", key=f"delete_{i}"):
+            with col38:
+                if st.button("🗑", key=f"delete_{i}"):
                     st.session_state.show_modal = True
-                    st.session_state.delete_email = row["Email"]
+                    st.session_state.delete_email = email
             st.markdown(
                 """
                 <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
@@ -391,9 +405,20 @@ def display_col1():
 
             if (
                 st.session_state.get("show_modal", False)
-                and st.session_state.get("delete_email", False) == row["Email"]
+                and st.session_state.get("delete_email", False) == email
             ):
                 show_delete_confirmation_modal(st.session_state.delete_email)
+
+def toggle_change_callback_download(user_id, email, toggle_key):
+    """
+    Callback function for the "Allow Download" toggle.
+    Updates the database and session state.
+    """
+    # Toggle the session state
+    st.session_state.allow_download_states[toggle_key] = not st.session_state.allow_download_states[toggle_key]
+
+    # Update the database
+    conn.change_user_download_status(email)
 
 def admin_panel():
     with st.sidebar:
@@ -430,18 +455,6 @@ def admin_panel():
             conn.set_gpt_limit(gpt_limit)
             del st.session_state.gpt_limit_state
             st.rerun()
-                # Get current download status from DB
-        download_status = conn.get_download_status()
-
-        # Toggle for enabling/disabling downloads
-        enable_download_toggle = st.toggle(
-        "Enable Download",
-        value=download_status,
-        help="Allow users to download files."
-        )
-                # Update status if changed
-        if enable_download_toggle != download_status:
-            conn.change_download_status()
         # Add separator between sections for better readability
         st.sidebar.markdown("---")
     col1, col2, col3, col4, col5 = st.tabs(
@@ -469,7 +482,8 @@ def admin_panel():
                     "ChatGPT Usage Limit",
                     "Stopped Since",
                     "gptlimittype",
-                    "is_admin"
+                    "is_admin",
+                    "allow_download"
                 ],
             )
             df = df[["ID", "Email", "Status"]]
@@ -663,7 +677,8 @@ def admin_panel():
                 "ChatGpt_limit",
                 "Stopped Since",
                 "gptlimittype",
-                "is_admin"
+                "is_admin",
+                "allow_download"
             ],
         )
         emails = list(emails["Email"])
@@ -1209,7 +1224,7 @@ def admin_panel():
 
             if not excel_files:
                 st.markdown(
-                    "⚠️ **No Excel files found in the specified folder.**",
+                    "⚠ *No Excel files found in the specified folder.*",
                     unsafe_allow_html=True,
                 )
 
@@ -1244,13 +1259,13 @@ def admin_panel():
                             )
                             excel_data = excel_buffer.getvalue()
                             st.download_button(
-                                label="⬇️ Download",
+                                label="⬇ Download",
                                 data=excel_data,
                                 file_name=selected_file,
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             )
                         with col2:
-                            if st.button("🗑️ Delete"):
+                            if st.button("🗑 Delete"):
                                 st.session_state.confirm_delete = True
                                 st.session_state.file_to_delete = (
                                     f"{PATH}/" + selected_file
