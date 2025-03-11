@@ -1041,7 +1041,7 @@ def admin_panel():
                     try:
                         new_data = pd.read_excel(new_data_file)
 
-                        valid_type = {"Incident", "Activity", "Study", "Report", "MoU"}
+                        valid_type = {"Incident", "Activity", "Study", "Report", "MoU", "Exercise", "Training", "Cooperation"}
                         valid_category = {
                             "Explosive",
                             "Biological",
@@ -1056,6 +1056,7 @@ def admin_panel():
                             "Environment",
                             "Economic",
                             "Animal",
+                            "Technology",
                         }
                         valid_severity = {"Low", "Medium", "High"}
 
