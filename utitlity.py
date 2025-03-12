@@ -15,7 +15,7 @@ class sqlpy:
             return None
         self.cursor = self.conn.cursor()
         password = bcrypt.hashpw("0000".encode("utf-8"), bcrypt.gensalt())
-        
+        # Rest of the initialization code...
 
 
         self.cursor.execute(
@@ -64,6 +64,14 @@ class sqlpy:
                 is_admin BOOl
                 );"""
         )
+        # Check if 'allow_download' column exists in the users table
+        self.cursor.execute("PRAGMA table_info(users);")
+        columns = [col[1] for col in self.cursor.fetchall()]
+
+# If 'allow_download' column is missing, add it
+        if "allow_download" not in columns:
+           self.cursor.execute("ALTER TABLE users ADD COLUMN allow_download BOOL DEFAULT 0;")
+           self.conn.commit()
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS temporary_password(
                 email VARCHAR(255),
@@ -457,19 +465,20 @@ class sqlpy:
         chatgpt = chatgpt ^ 1
         self.cursor.execute("UPDATE gpt_limit SET chatgpt = ? ", (chatgpt,))
         self.conn.commit()
-    def get_download_status(self):
-        """Fetch the current download status (enabled/disabled)."""
-        self.cursor.execute("SELECT enable_download FROM gpt_limit")
+    def get_user_download_status(self, email):
+        """Check if the user is allowed to download."""
+        self.cursor.execute("SELECT allow_download FROM users WHERE email = ?", (email,))
         result = self.cursor.fetchone()
         return result[0] if result else 0  # Default to disabled
 
-    def change_download_status(self):
-        """Toggle the download status (Enable/Disable)."""
-        self.cursor.execute("SELECT enable_download FROM gpt_limit")
-        current_status = self.cursor.fetchone()[0]
-        new_status = 1 if current_status == 0 else 0  # Toggle between 0 and 1
-        self.cursor.execute("UPDATE gpt_limit SET enable_download = ?", (new_status,))
-        self.conn.commit()
+
+    def change_user_download_status(self, email):
+       """Toggle the user's download permission."""
+       current_status = self.get_user_download_status(email)
+       new_status = 1 if current_status == 0 else 0  # Toggle between 0 and 1
+       self.cursor.execute("UPDATE users SET allow_download = ? WHERE email = ?", (new_status, email))
+       self.conn.commit()
+
 
     def get_gpt_status(self):
         self.cursor.execute("SELECT chatgpt from gpt_limit")
