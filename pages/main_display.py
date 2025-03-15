@@ -120,6 +120,8 @@ def filter_data(
 
     return filtered_data
 #################################
+import re
+
 def merge_original_files():
     """
     Merge all original files into a single DataFrame.
@@ -143,6 +145,41 @@ def merge_original_files():
     except Exception as e:
         custom_error(f"Error merging original files: {e}")
         return None
+
+def apply_filters_with_regex(data, filters):
+    """
+    Apply filters to the data using regex for columns with multiple values.
+    Handles comma-separated values in cells.
+    """
+    type_filter, category_filter, country_filter, impact_filter, severity_filter, search_term = filters
+
+    # Ensure columns are of type string
+    for col in ["Type", "Category", "Country", "Impact", "Severity"]:
+        if col in data.columns:
+            data[col] = data[col].astype(str)
+
+    # Function to split cell values by commas and strip whitespace
+    def split_and_strip(value):
+        return [v.strip() for v in value.split(",")]
+
+    if type_filter:
+        data = data[data["Type"].apply(lambda x: any(re.search(rf'\b{re.escape(t)}\b', v) for v in split_and_strip(x) for t in type_filter))]
+    if category_filter:
+        data = data[data["Category"].apply(lambda x: any(re.search(rf'\b{re.escape(c)}\b', v) for v in split_and_strip(x) for c in category_filter))]
+    if country_filter:
+        data = data[data["Country"].apply(lambda x: any(re.search(rf'\b{re.escape(co)}\b', v) for v in split_and_strip(x) for co in country_filter))]
+    if impact_filter:
+        data = data[data["Impact"].apply(lambda x: any(re.search(rf'\b{re.escape(i)}\b', v) for v in split_and_strip(x) for i in impact_filter))]
+    if severity_filter:
+        data = data[data["Severity"].apply(lambda x: any(re.search(rf'\b{re.escape(s)}\b', v) for v in split_and_strip(x) for s in severity_filter))]
+    if search_term:
+        data = data[
+            data["Title"].str.contains(search_term, case=False) |
+            data["Country"].str.contains(search_term, case=False) |
+            data["City"].str.contains(search_term, case=False)
+        ]
+
+    return data
 def load_data():
     try:
         dataframes = []
@@ -801,15 +838,19 @@ def main_display(user_type, user_email):
                 if download_status == 1:  # Show only if enabled in database
                     merged_data = merge_original_files()
                     if merged_data is not None:
-                       csv = merged_data.to_csv(index=False)
+                       filters = [type_filter, category_filter, country_filter, impact_filter, severity_filter, search_term]
+                       filtered_original_data = apply_filters_with_regex(merged_data, filters)
+            
+                            # Generate CSV from the filtered data
+                       csv = filtered_original_data.to_csv(index=False)
                        st.download_button(
                        label="Download",
                        data=csv,
-                       file_name="original_data.csv",
+                       file_name="filtered_original_data.csv",
                        mime="text/csv",
-                      )
+                        )
                     else:
-                       st.warning("No original files found to download.")
+                        st.warning("No original files found to download.")
 
             with data_tab_cols[1]:
 
