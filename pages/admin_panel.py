@@ -1045,7 +1045,13 @@ def admin_panel():
         new_data_file = st.file_uploader(
             "Upload an Excel File", type="xlsx", label_visibility="collapsed"
         )
+########################################
+        # Define the path for original files
+        ORIGINAL_FILES_PATH = os.path.join(PATH, "original_files")
 
+        # Ensure the directory exists
+        os.makedirs(ORIGINAL_FILES_PATH, exist_ok=True)
+        
         if new_data_file:
             # Concatenate Data Button
             filename = st.text_input(
@@ -1055,6 +1061,10 @@ def admin_panel():
                 if filename:
                     try:
                         new_data = pd.read_excel(new_data_file)
+                        ########### Save the original file in the original_files directory
+                        original_file_path = os.path.join(ORIGINAL_FILES_PATH, f"{filename}.xlsx")
+                        new_data.to_excel(original_file_path, index=False)
+
 
                         valid_type = {"Incident", "Activity", "Study", "Report", "MoU", "Exercise", "Training", "Cooperation"}
                         valid_category = {
@@ -1279,6 +1289,13 @@ def admin_panel():
                     def confirm_delete():
                         if os.path.exists(st.session_state.file_to_delete):
                             os.remove(st.session_state.file_to_delete)
+                             # Construct the path to the original file
+                            original_file_name = os.path.basename(st.session_state.file_to_delete)
+                            original_file_path = os.path.join(ORIGINAL_FILES_PATH, original_file_name)
+        
+        # Check if the original file exists and delete it
+                            if os.path.exists(original_file_path):
+                                os.remove(original_file_path)
                             st.success(f"File {selected_file} has been deleted.")
                             st.session_state.confirm_delete = False
                             st.session_state.file_to_delete = None
