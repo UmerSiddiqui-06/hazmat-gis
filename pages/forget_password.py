@@ -41,6 +41,7 @@ def forget_password():
                 if user:
                     # Generate a temporary password
                     temp_password = generate_temp_password()
+                    st.session_state.temp_password = temp_password  # <-- Add this line
                     #set forgeted password
                     import bcrypt
                     hashed_password = bcrypt.hashpw(temp_password.encode('utf-8'), bcrypt.gensalt())
