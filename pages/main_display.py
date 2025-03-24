@@ -209,10 +209,31 @@ def load_data():
         st.stop()
     return data
 @st.cache_resource
-def create_folium_map(filtered_data, _world, selected_categories=None):
-    m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
-    temp_df = filtered_data.copy()
+def group_data_by_title_location_and_date(filtered_data):
+    # First, explode the Category column to handle multiple categories per row
+    filtered_data = filtered_data.copy()
+    filtered_data['Category'] = filtered_data['Category'].str.split(', ')
+    filtered_data = filtered_data.explode('Category')
+    
+    # Then group by Title, Coordinates, City, Country, Date, and Category
+    grouped_data = filtered_data.groupby(
+        ['Title', 'Coordinates', 'City', 'Country', 'Date', 'Category']
+    ).agg({
+        'Impact': lambda x: ', '.join(sorted(set(x.astype(str).str.split(', ').explode().unique()))),
+        'Severity': 'first',
+        'Casuality': 'first',
+        'Injuries': 'first',
+        'Full Link': 'first',
+    }).reset_index()
+    
+    return grouped_data
 
+def create_folium_map(filtered_data, _world, selected_categories=None):
+    # Group the data by title, location, date, and category
+    grouped_data = group_data_by_title_location_and_date(filtered_data)
+    
+    m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
+    
     folium.TileLayer(
         tiles="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
         attr="Google",
@@ -226,7 +247,6 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         detect_retina=True,
         opacity=1.0,
         subdomains=["mt0", "mt1", "mt2", "mt3"],
-        # bounds=[[-90, -180], [90, 180]],
     ).add_to(m)
 
     folium.GeoJson(
@@ -239,6 +259,7 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         },
     ).add_to(m)
 
+    # Create a single marker cluster for all markers
     marker_cluster = MarkerCluster(
         options={
             "spiderfyOnMaxZoom": True,
@@ -252,24 +273,43 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         }
     ).add_to(m)
 
-    for idx, row in filtered_data.iterrows():
+    # Create a dictionary to store the last coordinates to slightly offset markers
+    last_coords = {}
+    
+    for idx, row in grouped_data.iterrows():
         if pd.notna(row["Coordinates"]):
             if selected_categories is None or row["Category"] in selected_categories:
+                # Get the base coordinates
+                base_coords = row["Coordinates"]
+                
+                # If we've seen these coordinates before, slightly offset the marker
+                if base_coords in last_coords:
+                    offset_count = last_coords[base_coords]
+                    # Small offset (about 0.002 degrees ~ 200m at equator)
+                    offset = 0.002 * offset_count
+                    coords = (base_coords[0] + offset, base_coords[1] + offset)
+                    last_coords[base_coords] += 1
+                else:
+                    coords = base_coords
+                    last_coords[base_coords] = 1
+                
                 icon = folium.Icon(
                     icon=get_marker_icon(row["Category"]),
                     prefix="fa",
                     color=get_marker_color(row["Category"]),
                 )
 
+                # Create popup with category-specific information
+                popup_content = create_popup_content(row)
+                
                 folium.Marker(
-                    location=row["Coordinates"],
-                    popup=folium.Popup(create_popup_content(row), max_width=350),
-                    tooltip=row["Title"],
+                    location=coords,
+                    popup=folium.Popup(popup_content, max_width=350),
+                    tooltip=f"{row['Title']} ({row['Category']})",
                     icon=icon,
                 ).add_to(marker_cluster)
 
     m.fit_bounds([[-90, -180], [90, 180]])
-
     return m
 def get_marker_icon(category):
     icons = {
@@ -278,8 +318,9 @@ def get_marker_icon(category):
         "Radiological": "radiation",
         "Chemical": "flask",
         "Nuclear": "atom",
+        "Other": "question-circle"  # FontAwesome icon for "Other"
     }
-    return icons.get(category, "info-sign")
+    return icons.get(category, "question-circle")  # Default to "question-circle" if not found
 
 
 def get_marker_color(category):
@@ -289,8 +330,9 @@ def get_marker_color(category):
         "Radiological": "red",
         "Chemical": "orange",
         "Nuclear": "blue",
+        "Other": "gray"  # Color for "Other"
     }
-    return colors.get(category, "gray")
+    return colors.get(category, "gray")  # Default to "gray" if not found
 
 def add_download_history(filters):
     if filters[0] is not None:
@@ -645,7 +687,9 @@ def main_display(user_type, user_email):
             filtered_data["Date"] = pd.to_datetime(
                 filtered_data["Date"], errors="coerce"
             ).dt.date
-            m = create_folium_map(filtered_data, world, selected_categories)
+            grouped_data = group_data_by_title_location_and_date(filtered_data)
+
+            m = create_folium_map(grouped_data, world, selected_categories)
 
             folium_static(m, width=900, height=500)
             df = filtered_data.copy()
