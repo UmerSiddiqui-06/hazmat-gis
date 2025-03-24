@@ -59,8 +59,8 @@ def login_page():
     with c2:
         st.header("HazMat GIS - Login")
     with st.container(border=True):   
-        if "temp_password" in st.session_state:
-             st.warning(f"Your temporary password is: {st.session_state.temp_password}")
+        # if "temp_password" in st.session_state:
+        #      st.warning(f"Your temporary password is: {st.session_state.temp_password}")
         # Clear the temporary password from session state after displaying it
     
         # Login form
