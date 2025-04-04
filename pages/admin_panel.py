@@ -1066,7 +1066,7 @@ def admin_panel():
                         new_data.to_excel(original_file_path, index=False)
 
 
-                        valid_type = {"Incident", "Activity", "Study", "Report", "MoU", "Exercise", "Training", "Cooperation"}
+                        valid_type = {"Incident", "Activity", "Study", "Report", "MoU", "Exercise", "Training", "Cooperation", "Workshop", "Guidance"}
                         valid_category = {
                             "Explosive",
                             "Biological",
@@ -1082,6 +1082,7 @@ def admin_panel():
                             "Economic",
                             "Animal",
                             "Technology",
+                            "Weapon",
                         }
                         valid_severity = {"Low", "Medium", "High"}
 
