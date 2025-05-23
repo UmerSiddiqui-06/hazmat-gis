@@ -228,12 +228,16 @@ def group_data_by_title_location_and_date(filtered_data):
     
     return grouped_data
 
+#country base+spiral fixed.
+
 def create_folium_map(filtered_data, _world, selected_categories=None):
-    # Group the data by title, location, date, and category
+    # Group incidents by title/location/date
     grouped_data = group_data_by_title_location_and_date(filtered_data)
-    
+
+    # Create base map
     m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
-    
+
+    # Add Google tile layer
     folium.TileLayer(
         tiles="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
         attr="Google",
@@ -249,6 +253,7 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         subdomains=["mt0", "mt1", "mt2", "mt3"],
     ).add_to(m)
 
+    # Add country borders
     folium.GeoJson(
         _world,
         style_function=lambda feature: {
@@ -259,58 +264,56 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         },
     ).add_to(m)
 
-    # Create a single marker cluster for all markers
-    marker_cluster = MarkerCluster(
-        options={
-            "spiderfyOnMaxZoom": True,
-            "spiderLegPolylineOptions": {
-                "weight": 1.5,
-                "color": "#222",
-                "opacity": 0.5,
-            },
-            "zoomToBoundsOnClick": True,
-            "noWrap": True,
-        }
-    ).add_to(m)
+    # Dictionary for per-country clusters
+    country_clusters = {}
 
-    # Create a dictionary to store the last coordinates to slightly offset markers
-    last_coords = {}
-    
     for idx, row in grouped_data.iterrows():
         if pd.notna(row["Coordinates"]):
             if selected_categories is None or row["Category"] in selected_categories:
-                # Get the base coordinates
+                country = row["Country"]
+
+                # Initialize a MarkerCluster for the country if not already
+                if country not in country_clusters:
+                    country_clusters[country] = MarkerCluster(
+                        name=f"{country} Cluster",
+                        options={
+                            "spiderfyOnMaxZoom": True,
+                            "spiderLegPolylineOptions": {
+                                "weight": 1.5,
+                                "color": "#222",
+                                "opacity": 0.5
+                            },
+                            "zoomToBoundsOnClick": True,
+                            "noWrap": True,
+                        }
+                    )
+                    country_clusters[country].add_to(m)
+
                 base_coords = row["Coordinates"]
-                
-                # If we've seen these coordinates before, slightly offset the marker
-                if base_coords in last_coords:
-                    offset_count = last_coords[base_coords]
-                    # Small offset (about 0.002 degrees ~ 200m at equator)
-                    offset = 0.002 * offset_count
-                    coords = (base_coords[0] + offset, base_coords[1] + offset)
-                    last_coords[base_coords] += 1
-                else:
-                    coords = base_coords
-                    last_coords[base_coords] = 1
-                
+
+                # Round coordinates to ensure markers overlap → triggers spiderfy
+                coords = (round(base_coords[0], 4), round(base_coords[1], 4))
+
+                # Define marker icon and popup
                 icon = folium.Icon(
                     icon=get_marker_icon(row["Category"]),
                     prefix="fa",
                     color=get_marker_color(row["Category"]),
                 )
 
-                # Create popup with category-specific information
                 popup_content = create_popup_content(row)
-                
+
                 folium.Marker(
                     location=coords,
                     popup=folium.Popup(popup_content, max_width=350),
                     tooltip=f"{row['Title']} ({row['Category']})",
                     icon=icon,
-                ).add_to(marker_cluster)
+                ).add_to(country_clusters[country])
 
+    # Fit the entire world view
     m.fit_bounds([[-90, -180], [90, 180]])
     return m
+
 def get_marker_icon(category):
     icons = {
         "Explosive": "bomb",
@@ -764,50 +767,45 @@ def main_display(user_type, user_email):
             st.plotly_chart(fig2, use_container_width=True)
 
             st.subheader("Trend of Articles Over Time")
-            articles_by_date = (
-                filtered_data.groupby("Date").size().reset_index(name="count")
-            )
+# Prepare data for stacked bar chart
+            df = filtered_data.copy()
+            df["Category"] = df["Category"].str.split(", ")
+            df_exploded = df.explode("Category")
+            articles_by_date_category = df_exploded.groupby(["Date", "Category"]).size().reset_index(name="count")
 
-            color_scales = [
-                px.colors.qualitative.Plotly,
-                px.colors.qualitative.D3,
-                px.colors.qualitative.G10,
-                px.colors.qualitative.T10,
-                px.colors.qualitative.Alphabet,
-            ]
+# Define color map for categories
+            color_map = {
+            "Explosive": "black",
+            "Biological": "green",
+            "Radiological": "red",
+            "Chemical": "orange",
+           "Nuclear": "blue",
+           "Other": "gray"
+}
 
-            all_colors = []
-            for scale in color_scales:
-                all_colors.extend(scale)
-
-            def is_not_black(color):
-                # Convert hex to RGB
-                r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
-
-                return (r + g + b) > 60
-
-            filtered_colors = [color for color in all_colors if is_not_black(color)]
             fig3 = px.bar(
-                articles_by_date,
-                x="Date",
-                y="count",
-                labels={"count": "Number of Articles", "Date": "Date"},
-                title="Articles Published Over Time",
-            )
+            articles_by_date_category,
+            x="Date",
+            y="count",
+            color="Category",
+            labels={"count": "Number of Articles", "Date": "Date"},
+            title="Articles Published Over Time",
+            color_discrete_map=color_map
+)
             fig3.update_layout(
-                template="plotly_white",
-                height=300,
-                # width=300,
-                xaxis_title="Date",
-                yaxis_title="Number of Articles",
-                showlegend=False,
-            )
+            template="plotly_white",
+            height=300,
+            xaxis_title="Date",
+            yaxis_title="Number of Articles",
+            showlegend=True,
+            barmode="stack"
+)
+# Update hover template to ensure correct category-color mapping
             fig3.update_traces(
-                marker_color=filtered_colors,  # Use the filtered color palette
-                hovertemplate="<b>Date</b>: %{x}<br><b>Articles</b>: %{y}",
+            hovertemplate="<b>Date</b>: %{x}<br><b>Category</b>: %{fullData.name}<br><b>Articles</b>: %{y}",
+            hoverlabel=dict(bgcolor=[color_map[cat] for cat in articles_by_date_category["Category"]])
             )
             st.plotly_chart(fig3, use_container_width=True)
-
         with tab2:
             st.subheader("Incident Heatmap")
 
