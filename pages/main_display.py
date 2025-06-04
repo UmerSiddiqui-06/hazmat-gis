@@ -538,7 +538,7 @@ def create_popup_content(row):
             </tr>
             <tr>
                 <td style="padding: 8px; border: 1px solid #ddd;"><strong>Casuality:</strong></td>
-                <td style="padding: 8px; border: 1px solid #ddd;">{int(row['Casuality']) if pd.notna(row['Casuality']) else 'N/A'}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{int(row['Casuality']) if pd.notna(row['Casuality']) else 0}</td>
             </tr>
             <tr style="background-color: #f2f2f2;">
                 <td style="padding: 8px; border: 1px solid #ddd;"><strong>Injuries:</strong></td>
