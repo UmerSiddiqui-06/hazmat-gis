@@ -56,7 +56,14 @@ class sqlpy:
 
         # self.conn.commit()
         # Create the users table
-        
+        def add_column_if_not_exists(connection, table_name, column_name, column_type):
+            cursor = connection.cursor()
+            cursor.execute(f"PRAGMA table_info({table_name});")
+            columns = [info[1] for info in cursor.fetchall()]
+            if column_name not in columns:
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type};")
+                connection.commit()
+
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER,
@@ -71,6 +78,8 @@ class sqlpy:
                 is_admin BOOLEAN
                 );"""
         )
+        add_column_if_not_exists(self.conn, "users", "twitterapi", "BOOL DEFAULT 0")
+
         # Check if 'allow_download' column exists in the users table
         self.cursor.execute("SHOW COLUMNS FROM users LIKE 'allow_download';")
         columns = self.cursor.fetchall()
@@ -362,7 +371,7 @@ class sqlpy:
         # Fetch the stored hashed password for the given email
         self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
         data = self.cursor.fetchone()
-
+        print("data: ", data)
         if not data:
             # Email does not exist in the database
             return None, None
@@ -372,7 +381,7 @@ class sqlpy:
 
         # Verify the input password with the stored hashed password
         if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password):
-            return data[4], data[-1]
+            return data[4], data[-3]
         else:
             # Password does not match
             return None, None
@@ -381,6 +390,25 @@ class sqlpy:
         self.cursor.execute("SELECT * FROM users")
         data = self.cursor.fetchall()
         return data
+    
+    def change_user_twitter_status(self, user_id):
+        # Fetch the twitterapi status of the user
+        self.cursor.execute("SELECT twitterapi FROM users WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+
+        if result is not None:
+            already_status = result[0]
+
+            new_status = not already_status
+
+            # Update the twitterapi column
+            self.cursor.execute(
+                "UPDATE users SET twitterapi = ? WHERE user_id = ?", (new_status, user_id)
+            )
+            self.conn.commit()
+            print(f"User {user_id} Twitter API status updated: {already_status} -> {new_status}")
+        else:
+            print(f"No user found with user_id: {user_id}")
 
     def change_status(self, user_id):
         # Fetch the email and status of the user
