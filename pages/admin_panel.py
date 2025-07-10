@@ -73,6 +73,12 @@ def preprocess_data(data):
     data["Coordinates"] = result["Coordinates"]
     data["City"] = result["City"]
     return data
+def toggle_twitter_access(user_id, toggle_key):
+    # Compare with previous value and update if changed
+    if st.session_state[toggle_key] != st.session_state.twitter_access_states[toggle_key]:
+        # Update the toggle state in session and the database
+        st.session_state.twitter_access_states[toggle_key] = st.session_state[toggle_key]
+        conn.change_user_twitter_status(user_id)
 
 def toggle_change_callback_gpt(user_id, toggle_key):
     # Compare with previous value and update if changed
@@ -243,7 +249,8 @@ def display_col1():
                 "Stopped Since",
                 "gptlimittype",
                 "is_admin",
-                "allow_download"
+                "allow_download",
+                "twitterapi"
             ],
         )
 
@@ -279,7 +286,8 @@ def display_col1():
                 "Stopped Since",
                 "gptlimittype",
                 "is_admin",
-                "allow_download"  # Drop the column after fetching the status
+                "allow_download",  # Drop the column after fetching the status
+                "twitterapi"
             ],
             axis=1,
         )
@@ -409,6 +417,117 @@ def display_col1():
             ):
                 show_delete_confirmation_modal(st.session_state.delete_email)
 
+def display_col6():
+    users = conn.get_users()
+
+    if users:
+        # Create DataFrame from users
+        df = pd.DataFrame(
+            users,
+            columns=[
+                "ID",
+                "Email",
+                "Password",
+                "ChatGpt",
+                "Status",
+                "ChatGpt_used",
+                "ChatGpt_limit",
+                "Stopped Since",
+                "gptlimittype",
+                "is_admin",
+                "allow_download",
+                "twitterapi"
+            ],
+        )
+
+        emails = list(df["Email"])
+        selected_user = st_tags(
+            label="Search User",
+            text="Enter email to search...",
+            value=[],
+            suggestions=emails,
+            key="twitter_search",
+        )
+
+        if not selected_user:
+            selected_user = emails[:]
+        elif len(selected_user) > 0:
+            df = df[df["Email"].isin(selected_user)]
+
+        twitter_access = df["twitterapi"]
+
+        df = df.drop(
+            [
+                "Password",
+                "ChatGpt",
+                "Status",
+                "ChatGpt_used",
+                "Stopped Since",
+                "gptlimittype",
+                "is_admin",
+                "allow_download",  # Drop the column after fetching the status
+                "twitterapi"
+            ],
+            axis=1,
+        )
+        df.columns = ["ID", "Email", "ChatGpt_limit"]
+
+        # Check for changes in the number of users and reinitialize session states
+        if (
+            "prev_user_count" not in st.session_state
+            or st.session_state.prev_user_count != len(users)
+            or "twitter_access_states" not in st.session_state
+        ):
+            st.session_state.prev_user_count = len(users)  # Update user count
+            st.session_state.twitter_access_states = {
+                f"twitter{i}": twitter_access.iloc[i] for i in range(len(users))
+            }
+
+        # Display header
+        header_col1, header_col2, header_col3= (
+            st.columns((0.7, 2.8, 1.5))
+        )
+        with header_col1:
+            st.markdown("#### ID")
+        with header_col2:
+            st.markdown("#### Email")
+        with header_col3:
+            st.markdown("#### Twitter Access")
+        st.markdown(
+            """
+            <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
+            """,
+            unsafe_allow_html=True,
+        )
+        ID = 1
+        # Iterate over the DataFrame rows
+        for i, row in df.iterrows():
+            col31, col32, col33 = st.columns((0.7, 2.8, 1.5))
+            id = row["ID"]
+            email = row["Email"]  # Get the email for the current user
+            with col31:
+                st.markdown(f"#### {ID}", unsafe_allow_html=True)
+                ID += 1
+            with col32:
+                st.write("")
+                st.markdown(f"###### {email}", unsafe_allow_html=True)
+            with col33:
+                toggle_key_1 = f"twitter{i}"
+                st.toggle(
+                    "Off / On",
+                    value=st.session_state.twitter_access_states[toggle_key_1],
+                    key=toggle_key_1,
+                    on_change=toggle_twitter_access,
+                    args=(id, toggle_key_1),
+                )
+            st.markdown(
+                """
+                <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
 def toggle_change_callback_download(user_id, email, toggle_key):
     """
     Callback function for the "Allow Download" toggle.
@@ -457,13 +576,14 @@ def admin_panel():
             st.rerun()
         # Add separator between sections for better readability
         st.sidebar.markdown("---")
-    col1, col2, col3, col4, col5 = st.tabs(
+    col1, col2, col3, col4, col5, col6 = st.tabs(
         [
             "Manage Access",
             "Login History",
             "Download History",
             "GPT Stats",
             "Upload Data",
+            "Twitter Access"
         ]
     )
 
@@ -483,7 +603,8 @@ def admin_panel():
                     "Stopped Since",
                     "gptlimittype",
                     "is_admin",
-                    "allow_download"
+                    "allow_download",
+                    "twitterapi"
                 ],
             )
             df = df[["ID", "Email", "Status"]]
@@ -678,7 +799,8 @@ def admin_panel():
                 "Stopped Since",
                 "gptlimittype",
                 "is_admin",
-                "allow_download"
+                "allow_download",
+                "twitterapi"
             ],
         )
         emails = list(emails["Email"])
@@ -880,6 +1002,8 @@ def admin_panel():
                 custom_warning("Not Enough Data")
     with col1:
         display_col1()
+    with col6:
+        display_col6()
     with col4:
         history = (
             conn.get_gpt_history()

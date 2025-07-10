@@ -921,7 +921,7 @@ def main_display(user_type, user_email):
 if "logged_in" in st.session_state and st.session_state.logged_in:
     st.session_state.user_email = cookies.get("user_email")
     st.session_state.user_type = conn.is_admin(st.session_state.user_email)
-    print("admin ",st.session_state.user_type)
+    print("usertype: ",st.session_state.user_type)
     if "page" not in st.session_state:
         st.session_state.page = "main_display"
         cookies["page"] = "main_display"

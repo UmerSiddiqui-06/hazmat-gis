@@ -81,6 +81,8 @@ def login_page():
             else:
 
                 is_user,is_admin = conn.check_login(email, password)
+                print("is_user: ", is_user)
+                print("is_admin: ", is_admin)
                 if is_user == "Accepted" and is_admin:
                     st.session_state.logged_in = True
                     cookies["logged_in"] = "True"
