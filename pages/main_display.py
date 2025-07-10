@@ -231,87 +231,198 @@ def group_data_by_title_location_and_date(filtered_data):
 #country base+spiral fixed.
 
 def create_folium_map(filtered_data, _world, selected_categories=None):
-    # Group incidents by title/location/date
-    grouped_data = group_data_by_title_location_and_date(filtered_data)
+    if filtered_data is None or _world is None:
+        return folium.Map(location=[20, 0], zoom_start=2)
 
-    # Create base map
-    m = folium.Map(location=[0, 0], zoom_start=3, tiles=None, max_bounds=True)
+    try:
+        grouped_data = group_data_by_title_location_and_date(filtered_data)
+        if grouped_data is None or grouped_data.empty:
+            return folium.Map(location=[20, 0], zoom_start=2)
+    except Exception:
+        return folium.Map(location=[20, 0], zoom_start=2)
 
-    # Add Google tile layer
-    folium.TileLayer(
-        tiles="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
-        attr="Google",
-        name="Google Maps",
-        overlay=False,
-        control=True,
-        show=True,
-        no_wrap=True,
-        min_zoom=1.5,
-        max_zoom=18,
-        detect_retina=True,
-        opacity=1.0,
-        subdomains=["mt0", "mt1", "mt2", "mt3"],
-    ).add_to(m)
+    m = folium.Map(
+        location=[20, 0],
+        zoom_start=2,
+        tiles=None,
+        max_bounds=True,
+        control_scale=True,
+        prefer_canvas=True
+    )
 
-    # Add country borders
-    folium.GeoJson(
-        _world,
-        style_function=lambda feature: {
-            "fillColor": "transparent",
-            "color": "#bcbcbc",
-            "weight": 1,
-            "fillOpacity": 0,
-        },
-    ).add_to(m)
+    def add_tile_layer(map_obj, tiles, name, attr, overlay=False):
+        try:
+            folium.TileLayer(
+                tiles=str(tiles) if tiles else "",
+                name=str(name) if name else "",
+                attr=str(attr) if attr else "",
+                overlay=bool(overlay),
+                control=True
+            ).add_to(map_obj)
+        except Exception:
+            pass
 
-    # Dictionary for per-country clusters
-    country_clusters = {}
+    # Tile layers
+    add_tile_layer(m, "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", "Google Maps", "Google")
+    add_tile_layer(m, "CartoDB dark_matter", "Dark Mode", "CartoDB")
+    add_tile_layer(m, "Stamen Terrain", "Terrain", "Stamen")
+    add_tile_layer(m, "OpenStreetMap", "OpenStreetMap", "OpenStreetMap")
+
+    # Country borders
+    try:
+        borders_layer = folium.FeatureGroup(name='Country Borders', show=True)
+        folium.GeoJson(
+            _world,
+            style_function=lambda feature: {
+                "fillColor": "transparent",
+                "color": "#bcbcbc",
+                "weight": 1,
+                "fillOpacity": 0.5,
+            },
+            name="Country Borders"
+        ).add_to(borders_layer)
+        borders_layer.add_to(m)
+    except Exception:
+        pass
+
+    # Prepare data
+    def safe_get(obj, key, default=""):
+        try:
+            val = obj.get(key, default)
+            return str(val) if val is not None else default
+        except Exception:
+            return default
+
+    severity_weights = {'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4}
+    heat_data = []
+    valid_coords = []
+    marker_data = []
 
     for idx, row in grouped_data.iterrows():
-        if pd.notna(row["Coordinates"]):
-            if selected_categories is None or row["Category"] in selected_categories:
-                country = row["Country"]
+        try:
+            coords = row.get("Coordinates")
+            if not isinstance(coords, (list, tuple)) or len(coords) != 2:
+                continue
 
-                # Initialize a MarkerCluster for the country if not already
-                if country not in country_clusters:
-                    country_clusters[country] = MarkerCluster(
-                        name=f"{country} Cluster",
-                        options={
-                            "spiderfyOnMaxZoom": True,
-                            "spiderLegPolylineOptions": {
-                                "weight": 1.5,
-                                "color": "#222",
-                                "opacity": 0.5
-                            },
-                            "zoomToBoundsOnClick": True,
-                            "noWrap": True,
-                        }
-                    )
-                    country_clusters[country].add_to(m)
+            lat, lon = float(coords[0]), float(coords[1])
+            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                continue
 
-                base_coords = row["Coordinates"]
+            category = safe_get(row, "Category", "Other").strip()
+            if selected_categories and category not in selected_categories:
+                continue
 
-                # Round coordinates to ensure markers overlap → triggers spiderfy
-                coords = (round(base_coords[0], 4), round(base_coords[1], 4))
+            severity = safe_get(row, "Severity", "Low").strip()
+            weight = severity_weights.get(severity, 1)
+            heat_data.append([lat, lon, weight])
+            valid_coords.append((lat, lon))
 
-                # Define marker icon and popup
-                icon = folium.Icon(
-                    icon=get_marker_icon(row["Category"]),
-                    prefix="fa",
-                    color=get_marker_color(row["Category"]),
+            marker_data.append({
+                'coords': (lat, lon),
+                'category': category,
+                'country': safe_get(row, "Country", "Unknown").strip(),
+                'title': safe_get(row, "Title", "No title").strip(),
+                'row': row
+            })
+        except Exception:
+            continue
+
+    # Heatmap
+    if heat_data:
+        try:
+            heatmap_layer = folium.FeatureGroup(name='Severity Heatmap', show=False)
+            HeatMap(
+                heat_data,
+                name="Severity Heatmap",
+                min_opacity=0.3,
+                radius=15,
+                blur=10
+            ).add_to(heatmap_layer)
+            heatmap_layer.add_to(m)
+        except Exception:
+            pass
+
+    # ✅ Population Density Layer using simplified GeoJSON
+    try:
+        population_layer = folium.FeatureGroup(name="Population Density", show=False)
+        pop_data_url = "https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson"
+
+        pop_style = lambda feature: {
+            "fillColor": "#ffeda0" if feature["properties"].get("pop_est", 0) < 10000000
+                        else "#feb24c" if feature["properties"].get("pop_est", 0) < 50000000
+                        else "#f03b20",
+            "fillOpacity": 0.5,
+            "color": "#333",
+            "weight": 0.5,
+        }
+
+        folium.GeoJson(
+            pop_data_url,
+            name="Population Density",
+            style_function=pop_style,
+            tooltip=folium.GeoJsonTooltip(
+                fields=["name", "pop_est"],
+                aliases=["Country", "Estimated Population"],
+                localize=True
+            ),
+        ).add_to(population_layer)
+
+        population_layer.add_to(m)
+    except Exception:
+        pass
+
+    # Markers
+    country_clusters = {}
+    marker_layer = folium.FeatureGroup(name='Incident Markers', show=True)
+
+    for data in marker_data:
+        try:
+            country = data['country']
+            if country not in country_clusters:
+                country_clusters[country] = MarkerCluster(
+                    name=f"{country} Cluster",
+                    options={
+                        "spiderfyOnMaxZoom": True,
+                        "zoomToBoundsOnClick": True,
+                    }
                 )
+                country_clusters[country].add_to(marker_layer)
 
-                popup_content = create_popup_content(row)
+            icon = folium.Icon(
+                icon=get_marker_icon(data['category']),
+                prefix="fa",
+                color=get_marker_color(data['category']),
+            )
 
-                folium.Marker(
-                    location=coords,
-                    popup=folium.Popup(popup_content, max_width=350),
-                    tooltip=f"{row['Title']} ({row['Category']})",
-                    icon=icon,
-                ).add_to(country_clusters[country])
+            popup_content = create_popup_content(data['row'])
+            folium.Marker(
+                location=data['coords'],
+                popup=folium.Popup(popup_content, max_width=350),
+                tooltip=f"{data['title']} ({data['category']})",
+                icon=icon,
+            ).add_to(country_clusters[country])
+        except Exception:
+            continue
 
-    # Fit the entire world view
-    m.fit_bounds([[-90, -180], [90, 180]])
+    marker_layer.add_to(m)
+
+    try:
+        folium.LayerControl(position='topright', collapsed=False).add_to(m)
+    except Exception:
+        pass
+
+    try:
+        if valid_coords:
+            min_lat = min(c[0] for c in valid_coords)
+            max_lat = max(c[0] for c in valid_coords)
+            min_lon = min(c[1] for c in valid_coords)
+            max_lon = max(c[1] for c in valid_coords)
+            m.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])
+        else:
+            m.fit_bounds([[-90, -180], [90, 180]])
+    except Exception:
+        m.fit_bounds([[-90, -180], [90, 180]])
+
     return m
 
 def get_marker_icon(category):
