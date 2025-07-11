@@ -253,24 +253,28 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
     def add_tile_layer(map_obj, tiles, name, attr, overlay=False):
         try:
             folium.TileLayer(
-                tiles=str(tiles) if tiles else "",
-                name=str(name) if name else "",
-                attr=str(attr) if attr else "",
+                tiles=str(tiles),
+                name=str(name),
+                attr=str(attr),
                 overlay=bool(overlay),
                 control=True
             ).add_to(map_obj)
         except Exception:
             pass
 
-    # Tile layers
+    # Base tile layers
     add_tile_layer(m, "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", "Google Maps", "Google")
     add_tile_layer(m, "CartoDB dark_matter", "Dark Mode", "CartoDB")
-    add_tile_layer(m, "Stamen Terrain", "Terrain", "Stamen")
+    add_tile_layer(
+        m,
+        "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+        "Terrain",
+        "Map data: © OpenStreetMap contributors, SRTM | Tiles: © OpenTopoMap (CC-BY-SA)"
+    )
     add_tile_layer(m, "OpenStreetMap", "OpenStreetMap", "OpenStreetMap")
 
-    # Country borders
+    # Always-show Country Borders (not toggleable)
     try:
-        borders_layer = folium.FeatureGroup(name='Country Borders', show=True)
         folium.GeoJson(
             _world,
             style_function=lambda feature: {
@@ -279,13 +283,12 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
                 "weight": 1,
                 "fillOpacity": 0.5,
             },
-            name="Country Borders"
-        ).add_to(borders_layer)
-        borders_layer.add_to(m)
+            control=False
+        ).add_to(m)
     except Exception:
         pass
 
-    # Prepare data
+    # Safe getter
     def safe_get(obj, key, default=""):
         try:
             val = obj.get(key, default)
@@ -293,8 +296,6 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         except Exception:
             return default
 
-    severity_weights = {'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4}
-    heat_data = []
     valid_coords = []
     marker_data = []
 
@@ -312,11 +313,7 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
             if selected_categories and category not in selected_categories:
                 continue
 
-            severity = safe_get(row, "Severity", "Low").strip()
-            weight = severity_weights.get(severity, 1)
-            heat_data.append([lat, lon, weight])
             valid_coords.append((lat, lon))
-
             marker_data.append({
                 'coords': (lat, lon),
                 'category': category,
@@ -327,22 +324,7 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         except Exception:
             continue
 
-    # Heatmap
-    if heat_data:
-        try:
-            heatmap_layer = folium.FeatureGroup(name='Severity Heatmap', show=False)
-            HeatMap(
-                heat_data,
-                name="Severity Heatmap",
-                min_opacity=0.3,
-                radius=15,
-                blur=10
-            ).add_to(heatmap_layer)
-            heatmap_layer.add_to(m)
-        except Exception:
-            pass
-
-    # ✅ Population Density Layer using simplified GeoJSON
+    # Population Density Layer
     try:
         population_layer = folium.FeatureGroup(name="Population Density", show=False)
         pop_data_url = "https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson"
@@ -371,7 +353,7 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
     except Exception:
         pass
 
-    # Markers
+    # Marker Clusters
     country_clusters = {}
     marker_layer = folium.FeatureGroup(name='Incident Markers', show=True)
 
@@ -424,6 +406,7 @@ def create_folium_map(filtered_data, _world, selected_categories=None):
         m.fit_bounds([[-90, -180], [90, 180]])
 
     return m
+
 
 def get_marker_icon(category):
     icons = {
