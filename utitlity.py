@@ -72,6 +72,11 @@ class sqlpy:
         if "allow_download" not in columns:
            self.cursor.execute("ALTER TABLE users ADD COLUMN allow_download BOOL DEFAULT 0;")
            self.conn.commit()
+
+# If 'twitterapi' column is missing, add it
+        if "twitterapi" not in columns:
+           self.cursor.execute("ALTER TABLE users ADD COLUMN twitterapi INTEGER DEFAULT 0;")
+           self.conn.commit()
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS temporary_password(
                 email VARCHAR(255),
