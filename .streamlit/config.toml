@@ -1,5 +1,5 @@
 [client]
-showErrorDetails="full"
+showErrorDetails="none"
 toolbarMode = "viewer"
 showSidebarNavigation = false
 
