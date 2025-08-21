@@ -10,6 +10,21 @@ from st_aggrid.shared import JsCode
 from streamlit_plotly_events import plotly_events
 from plotly.subplots import make_subplots
 import numpy as np
+import utitlity
+
+@st.cache_resource
+def get_database_connection():
+    return utitlity.sqlpy()
+
+conn = get_database_connection()
+
+# Check if connection worked
+if not conn or not conn.cursor:
+    st.error("🚫 Database is temporarily unavailable.")
+    if st.button("🔄 Retry"):
+        st.cache_resource.clear()
+        st.rerun()
+    st.stop()
 @st.cache_data
 def load_data():
     data = pd.read_excel('News GIS.xlsx', engine='openpyxl')

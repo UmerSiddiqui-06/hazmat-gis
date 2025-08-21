@@ -1,4 +1,19 @@
 import streamlit as st
+import utitlity
+
+@st.cache_resource
+def get_database_connection():
+    return utitlity.sqlpy()
+
+conn = get_database_connection()
+
+# Check if connection worked
+if not conn or not conn.cursor:
+    st.error("🚫 Database is temporarily unavailable.")
+    if st.button("🔄 Retry"):
+        st.cache_resource.clear()
+        st.rerun()
+    st.stop()
 def custom_error(message):
     st.markdown(
         f"""

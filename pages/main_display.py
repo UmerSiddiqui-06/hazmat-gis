@@ -16,6 +16,20 @@ from io import BytesIO
 import ast
 from custom_warnings import custom_error, custom_warning
 from pages.db_path import db_path
+
+@st.cache_resource
+def get_database_connection():
+    return utitlity.sqlpy()
+
+conn = get_database_connection()
+
+# Check if connection worked
+if not conn or not conn.cursor:
+    st.error("🚫 Database is temporarily unavailable.")
+    if st.button("🔄 Retry"):
+        st.cache_resource.clear()
+        st.rerun()
+    st.stop()
 # Define the path for original files
 PATH = db_path()
 ORIGINAL_FILES_PATH = os.path.join(PATH, "original_files")
