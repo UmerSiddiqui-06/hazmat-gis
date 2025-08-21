@@ -17,7 +17,12 @@ from custom_warnings import custom_error,custom_warning
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    """Get cached database connection that won't be garbage collected"""
+    conn = utitlity.sqlpy()
+    # Keep a strong reference to prevent garbage collection
+    if hasattr(conn, 'conn') and conn.conn:
+        conn._connection_ref = conn.conn  # Keep strong reference
+    return conn
 
 conn = get_database_connection()
 
@@ -382,7 +387,7 @@ def display_col1():
                 st.toggle(
                     "Revoke / Grant",
                     value=st.session_state.toggle_states_status[toggle_key],
-                    key=toggle_key,
+                    key=f"status_{id}_{i}",
                     on_change=toggle_change_callback_status,
                     args=(id, toggle_key),
                 )
@@ -391,7 +396,7 @@ def display_col1():
                 st.toggle(
                     "Off / On",
                     value=st.session_state.is_admin_user[admin_key],
-                    key=admin_key,
+                    key=f"admin_{id}_{i}",
                     on_change=toggle_change_user_admin,
                     args=(id, admin_key),
                 )
@@ -400,14 +405,14 @@ def display_col1():
                 st.toggle(
                     "Off / On",
                     value=st.session_state.allow_download_states[download_key],
-                    key=download_key,
+                    key=f"download_{id}_{i}",
                     on_change=lambda user_id=id, email=email, key=download_key: toggle_change_callback_download(user_id, email, key),
                 )
             with col37:
                 number_key = f"limit_{id}"
                 st.number_input(
                     " ",
-                    key=number_key,
+                    key=f"limit_{id}_{i}",
                     label_visibility="collapsed",
                     value=st.session_state.gpt_limit_state[number_key],
                     step=1,
@@ -532,7 +537,7 @@ def display_col6():
                 st.toggle(
                     "Off / On",
                     value=st.session_state.twitter_access_states[toggle_key_1],
-                    key=toggle_key_1,
+                    key=f"twitter_{id}_{i}",  # Add row index for uniqueness
                     on_change=toggle_twitter_access,
                     args=(id, toggle_key_1),
                 )
