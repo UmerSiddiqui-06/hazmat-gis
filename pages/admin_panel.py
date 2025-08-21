@@ -382,10 +382,10 @@ def display_col1():
                 admin_key = f"admin_{id}"
                 st.toggle(
                     "Off / On",
-                    value=st.session_state.is_admin_user[toggle_key_1],
-                    key=toggle_key_1,
+                    value=st.session_state.is_admin_user[admin_key],
+                    key=admin_key,
                     on_change=toggle_change_user_admin,
-                    args=(id, toggle_key_1),
+                    args=(id, admin_key),
                 )
             with col36:
                 download_key = f"download_{id}"
