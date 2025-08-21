@@ -353,7 +353,7 @@ def display_col1():
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
             with col34:
-                toggle_key_1 = f"t{i}"
+                toggle_key_1 = f"t{id}_{i}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.toggle_states_gpt[toggle_key_1],
