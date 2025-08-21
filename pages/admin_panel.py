@@ -373,7 +373,7 @@ def display_col1():
                 st.toggle(
                     "Off / On",
                     value=st.session_state.toggle_states_gpt[toggle_key_1],
-                    key=f"gpt_{toggle_key_1}",  # Add unique prefix for Streamlit key
+                    key=f"gpt_{id}_{i}",  # Add unique prefix for Streamlit key
                     on_change=toggle_change_callback_gpt,
                     args=(id, toggle_key_1),
                 )
