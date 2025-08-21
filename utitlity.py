@@ -189,7 +189,7 @@ class sqlpy:
         stored_hashed_password = data[2]  # Assuming the password is stored in the third column
 
         # Verify the input password with the stored hashed password
-        if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password):
+        if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
             return data[4], data[-3]
         else:
             # Password does not match
