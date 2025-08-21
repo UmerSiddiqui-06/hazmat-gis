@@ -249,18 +249,9 @@ class sqlpy:
     #     else:
     #         # Password does not match
     #         return None, None
+    
 
     def check_login(self, email, input_password):
-        # Ensure connection is active
-        if not self.ensure_connection():
-            print("❌ Cannot establish database connection for login")
-            return None, None
-        
-        # Double-check cursor exists
-        if not self.cursor:
-            print("❌ No database cursor available for login")
-            return None, None
-        
         try:
             # Fetch the stored hashed password for the given email
             self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
@@ -282,8 +273,9 @@ class sqlpy:
                 return None, None
                 
         except Exception as e:
-            print(f"❌ Login query failed: {e}")
-            return None, None
+            print(f"❌ Database error during login: {e}")
+            # Re-raise the exception so you see the real error, don't hide it
+            raise e
 
     def get_users(self):
         self.cursor.execute("SELECT * FROM users")
