@@ -301,19 +301,19 @@ def display_col1():
         ):
             st.session_state.prev_user_count = len(users)  # Update user count
             st.session_state.toggle_states_gpt = {
-                f"t{i}": gpt_status.iloc[i] for i in range(len(users))
+                f"t{users[i][0]}_{i}": gpt_status.iloc[i] for i in range(len(users))
             }
             st.session_state.toggle_states_status = {
-                f"t1{i}": login_status[i] for i in range(len(users))
+                f"t1{users[i][0]}_{i}": login_status[i] for i in range(len(users))
             }
             st.session_state.gpt_limit_state = {
-                f"number{i}": gptlimit.iloc[i] for i in range(len(users))
+                f"number{users[i][0]}_{i}": gptlimit.iloc[i] for i in range(len(users))
             }
             st.session_state.is_admin_user = {
-                f"ia{i}": is_admin.iloc[i] for i in range(len(users))
+                f"ia{users[i][0]}_{i}": is_admin.iloc[i] for i in range(len(users))
             }
             st.session_state.allow_download_states = {
-                f"ad{i}": allow_download.iloc[i] for i in range(len(users))
+                f"ad{users[i][0]}_{i}": allow_download.iloc[i] for i in range(len(users))
             }
 
         # Display header
@@ -362,7 +362,7 @@ def display_col1():
                     args=(id, toggle_key_1),
                 )
             with col33:
-                toggle_key = f"t1{i}"
+                toggle_key = f"t1{id}_{i}"
                 st.toggle(
                     "Revoke / Grant",
                     value=st.session_state.toggle_states_status[toggle_key],
@@ -371,7 +371,7 @@ def display_col1():
                     args=(id, toggle_key),
                 )
             with col35:
-                toggle_key_1 = f"ia{i}"
+                toggle_key_1 = f"ia{id}_{i}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.is_admin_user[toggle_key_1],
@@ -380,7 +380,7 @@ def display_col1():
                     args=(id, toggle_key_1),
                 )
             with col36:
-                toggle_key_2 = f"ad{i}"
+                toggle_key_2 = f"ad{id}_{i}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.allow_download_states[toggle_key_2],
@@ -388,7 +388,7 @@ def display_col1():
                     on_change=lambda user_id=id, email=email, key=toggle_key_2: toggle_change_callback_download(user_id, email, key),
                 )
             with col37:
-                number_key = f"number{i}"
+                number_key = f"number{id}_{i}"
                 st.number_input(
                     " ",
                     key=number_key,
@@ -480,7 +480,7 @@ def display_col6():
         ):
             st.session_state.prev_user_count = len(users)  # Update user count
             st.session_state.twitter_access_states = {
-                f"twitter{i}": twitter_access.iloc[i] for i in range(len(users))
+                f"twitter{users[i][0]}_{i}": twitter_access.iloc[i] for i in range(len(users))
             }
 
         # Display header
@@ -512,7 +512,7 @@ def display_col6():
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
             with col33:
-                toggle_key_1 = f"twitter{i}"
+                toggle_key_1 = f"twitter{id}_{i}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.twitter_access_states[toggle_key_1],
