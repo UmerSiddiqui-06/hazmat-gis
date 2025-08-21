@@ -301,19 +301,19 @@ def display_col1():
         ):
             st.session_state.prev_user_count = len(users)  # Update user count
             st.session_state.toggle_states_gpt = {
-                f"t{users[i][0]}_{i}": gpt_status.iloc[i] for i in range(len(users))
+                str(users[i][0]): gpt_status.iloc[i] for i in range(len(users))
             }
             st.session_state.toggle_states_status = {
-                f"t1{users[i][0]}_{i}": login_status[i] for i in range(len(users))
+                f"status_{users[i][0]}": login_status[i] for i in range(len(users))
             }
             st.session_state.gpt_limit_state = {
-                f"number{users[i][0]}_{i}": gptlimit.iloc[i] for i in range(len(users))
+                f"limit_{users[i][0]}": gptlimit.iloc[i] for i in range(len(users))
             }
             st.session_state.is_admin_user = {
-                f"ia{users[i][0]}_{i}": is_admin.iloc[i] for i in range(len(users))
+                f"admin_{users[i][0]}": is_admin.iloc[i] for i in range(len(users))
             }
             st.session_state.allow_download_states = {
-                f"ad{users[i][0]}_{i}": allow_download.iloc[i] for i in range(len(users))
+                f"download_{users[i][0]}": allow_download.iloc[i] for i in range(len(users))
             }
 
         # Display header
@@ -353,16 +353,16 @@ def display_col1():
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
             with col34:
-                toggle_key_1 = f"t{id}_{i}"
+                toggle_key_1 = str(id)
                 st.toggle(
                     "Off / On",
                     value=st.session_state.toggle_states_gpt[toggle_key_1],
-                    key=toggle_key_1,
+                    key=f"gpt_{toggle_key_1}",  # Add unique prefix for Streamlit key
                     on_change=toggle_change_callback_gpt,
                     args=(id, toggle_key_1),
                 )
             with col33:
-                toggle_key = f"t1{id}_{i}"
+                toggle_key = f"status_{id}"
                 st.toggle(
                     "Revoke / Grant",
                     value=st.session_state.toggle_states_status[toggle_key],
@@ -371,7 +371,7 @@ def display_col1():
                     args=(id, toggle_key),
                 )
             with col35:
-                toggle_key_1 = f"ia{id}_{i}"
+                admin_key = f"admin_{id}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.is_admin_user[toggle_key_1],
@@ -380,7 +380,7 @@ def display_col1():
                     args=(id, toggle_key_1),
                 )
             with col36:
-                toggle_key_2 = f"ad{id}_{i}"
+                download_key = f"download_{id}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.allow_download_states[toggle_key_2],
@@ -388,7 +388,7 @@ def display_col1():
                     on_change=lambda user_id=id, email=email, key=toggle_key_2: toggle_change_callback_download(user_id, email, key),
                 )
             with col37:
-                number_key = f"number{id}_{i}"
+                number_key = f"limit_{id}"
                 st.number_input(
                     " ",
                     key=number_key,
@@ -480,7 +480,7 @@ def display_col6():
         ):
             st.session_state.prev_user_count = len(users)  # Update user count
             st.session_state.twitter_access_states = {
-                f"twitter{users[i][0]}_{i}": twitter_access.iloc[i] for i in range(len(users))
+                f"twitter_{users[i][0]}": twitter_access.iloc[i] for i in range(len(users))
             }
 
         # Display header
@@ -512,7 +512,7 @@ def display_col6():
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
             with col33:
-                toggle_key_1 = f"twitter{id}_{i}"
+                toggle_key_1 = f"twitter_{id}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.twitter_access_states[toggle_key_1],
