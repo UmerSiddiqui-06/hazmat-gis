@@ -2,32 +2,36 @@ import streamlit as st
 import utitlity
 import time
 from custom_warnings import custom_error, custom_warning
-# Clear all caches to force fresh connections
-st.cache_data.clear()
-st.cache_resource.clear()
 
-@st.cache_resource
-def get_db_connection():
-    import utitlity
-    return utitlity.sqlpy()
-
-# Use the cached connection
-conn = get_db_connection()
-if not conn or not conn.cursor:
-    st.error("Database connection failed. Please try again in a few minutes, as connection failed...")
-    st.stop()
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
+
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
+
 @st.cache_resource
 def get_database_connection():
+    """Single cached database connection for the entire app"""
     return utitlity.sqlpy()
 
-conn = get_database_connection()  # Reuses same connection
-if not conn:
+# Get the single cached connection
+conn = get_database_connection()
+
+# Check if connection worked
+if not conn or not conn.cursor:
+    st.error("🚫 Database is temporarily unavailable due to connection limits.")
+    st.info("💡 This usually resolves within 1-2 minutes. Please try refreshing the page.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Retry Connection"):
+            st.cache_resource.clear()  # Clear only resource cache
+            st.rerun()
+    with col2:
+        if st.button("🏠 Go to Home"):
+            st.switch_page("main.py")  # Or your main page
     st.stop()
 def show_toast(message, duration=2):
     toast_html = f"""
