@@ -13,6 +13,7 @@ class sqlpy:
             return self.conn and self.conn.is_connected() and self.cursor
         except:
             return False
+            
 
     def ensure_connection(self):
         """Ensure database connection is active, reconnect if needed"""
