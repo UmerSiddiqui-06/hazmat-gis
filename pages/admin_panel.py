@@ -35,14 +35,7 @@ from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
-try:
-    conn = utitlity.sqlpy()
-    if not conn.is_connected():
-        st.error("Database connection failed. Please try again later.")
-        st.stop()
-except Exception as e:
-    st.error(f"Failed to initialize database connection: {e}")
-    st.stop()
+
 if cookies.get("user_type") == "admin":
     st.session_state.user_email = cookies.get("user_email")
     try:
