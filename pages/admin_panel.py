@@ -406,9 +406,9 @@ def display_col1():
                 download_key = f"download_{id}"
                 st.toggle(
                     "Off / On",
-                    value=st.session_state.allow_download_states[toggle_key_2],
-                    key=toggle_key_2,
-                    on_change=lambda user_id=id, email=email, key=toggle_key_2: toggle_change_callback_download(user_id, email, key),
+                    value=st.session_state.allow_download_states[download_key],
+                    key=download_key,
+                    on_change=lambda user_id=id, email=email, key=download_key: toggle_change_callback_download(user_id, email, key),
                 )
             with col37:
                 number_key = f"limit_{id}"
