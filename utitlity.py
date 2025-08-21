@@ -6,17 +6,17 @@ from dateutil.relativedelta import relativedelta
 from custom_warnings import custom_error
 from decouple import config
 import streamlit as st
-@st.cache_resource
-def get_database_connection():
-    return utitlity.sqlpy()
+# @st.cache_resource
+# def get_database_connection():
+#     return utitlity.sqlpy()
 
-# Use cached connection instead of creating new ones
-conn = get_database_connection()
+# # Use cached connection instead of creating new ones
+# conn = get_database_connection()
 
-# Check if connection worked
-if not conn or not conn.cursor:
-    st.error("Database connection failed. Please try again in a few minutes.")
-    st.stop()
+# # Check if connection worked
+# if not conn or not conn.cursor:
+#     st.error("Database connection failed. Please try again in a few minutes.")
+#     st.stop()
 
 class sqlpy:
     def close_connection(self):

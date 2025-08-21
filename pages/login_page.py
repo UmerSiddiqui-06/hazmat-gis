@@ -13,6 +13,9 @@ def get_db_connection():
 
 # Use the cached connection
 conn = get_db_connection()
+if not conn or not conn.cursor:
+    st.error("Database connection failed. Please try again in a few minutes, as connection failed...")
+    st.stop()
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
 from streamlit_cookies_manager import EncryptedCookieManager
