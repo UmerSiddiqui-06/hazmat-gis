@@ -2,13 +2,28 @@ import streamlit as st
 import utitlity
 import time
 from custom_warnings import custom_error, custom_warning
+# Clear all caches to force fresh connections
+st.cache_data.clear()
+st.cache_resource.clear()
+
+@st.cache_resource
+def get_db_connection():
+    import utitlity
+    return utitlity.sqlpy()
+
+# Use the cached connection
+conn = get_db_connection()
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
-conn = utitlity.sqlpy()
+@st.cache_resource
+def get_database_connection():
+    return utitlity.sqlpy()
+
+conn = get_database_connection()  # Reuses same connection
 if not conn:
     st.stop()
 def show_toast(message, duration=2):

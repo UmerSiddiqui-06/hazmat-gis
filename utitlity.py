@@ -7,6 +7,19 @@ from custom_warnings import custom_error
 from decouple import config
 
 class sqlpy:
+    def close_connection(self):
+        """Properly close database connection"""
+        try:
+            if self.cursor:
+                self.cursor.close()
+            if self.conn:
+                self.conn.close()
+            print("Database connection closed")
+        except:
+            pass
+        finally:
+            self.cursor = None
+            self.conn = None
     def is_connected(self):
         """Check if database connection is active"""
         try:
