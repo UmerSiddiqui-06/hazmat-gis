@@ -8,11 +8,11 @@ from decouple import config
 
 class sqlpy:
     def is_connected(self):
-    """Check if database connection is active"""
-    try:
-        return self.conn and self.conn.is_connected() and self.cursor
-    except:
-        return False
+        """Check if database connection is active"""
+        try:
+            return self.conn and self.conn.is_connected() and self.cursor
+        except:
+            return False
 
     def ensure_connection(self):
         """Ensure database connection is active, reconnect if needed"""

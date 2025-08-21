@@ -7,7 +7,6 @@ from streamlit_modal import Modal
 import os
 import utitlity
 from io import BytesIO
-
 from docx import Document
 from geopy.geocoders import Nominatim
 from rapidfuzz import process
