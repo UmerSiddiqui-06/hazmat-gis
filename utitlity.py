@@ -5,6 +5,17 @@ import bcrypt
 from dateutil.relativedelta import relativedelta
 from custom_warnings import custom_error
 from decouple import config
+@st.cache_resource
+def get_database_connection():
+    return utitlity.sqlpy()
+
+# Use cached connection instead of creating new ones
+conn = get_database_connection()
+
+# Check if connection worked
+if not conn or not conn.cursor:
+    st.error("Database connection failed. Please try again in a few minutes.")
+    st.stop()
 
 class sqlpy:
     def close_connection(self):
@@ -252,6 +263,11 @@ class sqlpy:
     
 
     def check_login(self, email, input_password):
+        # Simple check - if cursor is None, the connection failed
+        if not self.cursor:
+            print("❌ Database connection failed - cursor is None")
+            return None, None
+        
         try:
             # Fetch the stored hashed password for the given email
             self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
@@ -263,7 +279,7 @@ class sqlpy:
                 return None, None
 
             # Extract the hashed password from the database
-            stored_hashed_password = data[2]  # Assuming the password is stored in the third column
+            stored_hashed_password = data[2]
 
             # Verify the input password with the stored hashed password
             if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
@@ -274,8 +290,7 @@ class sqlpy:
                 
         except Exception as e:
             print(f"❌ Database error during login: {e}")
-            # Re-raise the exception so you see the real error, don't hide it
-            raise e
+            return None, None  # Return None instead of raising error
 
     def get_users(self):
         self.cursor.execute("SELECT * FROM users")
