@@ -231,23 +231,58 @@ class sqlpy:
 
         self.conn.commit()
 
+    # def check_login(self, email, input_password):
+    #     # Fetch the stored hashed password for the given email
+    #     self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+    #     data = self.cursor.fetchone()
+    #     print("data: ", data)
+    #     if not data:
+    #         # Email does not exist in the database
+    #         return None, None
+
+    #     # Extract the hashed password from the database
+    #     stored_hashed_password = data[2]  # Assuming the password is stored in the third column
+
+    #     # Verify the input password with the stored hashed password
+    #     if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
+    #         return data[4], data[-3]
+    #     else:
+    #         # Password does not match
+    #         return None, None
+
     def check_login(self, email, input_password):
-        # Fetch the stored hashed password for the given email
-        self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
-        data = self.cursor.fetchone()
-        print("data: ", data)
-        if not data:
-            # Email does not exist in the database
+        # Ensure connection is active
+        if not self.ensure_connection():
+            print("❌ Cannot establish database connection for login")
             return None, None
+        
+        # Double-check cursor exists
+        if not self.cursor:
+            print("❌ No database cursor available for login")
+            return None, None
+        
+        try:
+            # Fetch the stored hashed password for the given email
+            self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+            data = self.cursor.fetchone()
+            print("data: ", data)
+            
+            if not data:
+                # Email does not exist in the database
+                return None, None
 
-        # Extract the hashed password from the database
-        stored_hashed_password = data[2]  # Assuming the password is stored in the third column
+            # Extract the hashed password from the database
+            stored_hashed_password = data[2]  # Assuming the password is stored in the third column
 
-        # Verify the input password with the stored hashed password
-        if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
-            return data[4], data[-3]
-        else:
-            # Password does not match
+            # Verify the input password with the stored hashed password
+            if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
+                return data[4], data[-3]
+            else:
+                # Password does not match
+                return None, None
+                
+        except Exception as e:
+            print(f"❌ Login query failed: {e}")
             return None, None
 
     def get_users(self):
