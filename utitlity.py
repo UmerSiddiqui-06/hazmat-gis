@@ -7,58 +7,99 @@ from custom_warnings import custom_error
 from decouple import config
 
 class sqlpy:
-    def __init__(self): 
-        try:
-            DB_HOST="nozomi.proxy.rlwy.net"
-            DB_PORT=27858
-            DB_NAME="railway"
-            DB_USER="root"
-            DB_PASSWORD="YPcFdhkwAJbLGOTPXAsEWsCdiXBtvCWW"
-            # Get connection parameters
-            host = DB_HOST
-            port = DB_PORT
-            database = DB_NAME
-            user = DB_USER
-            password = DB_PASSWORD
+    def is_connected(self):
+    """Check if database connection is active"""
+    try:
+        return self.conn and self.conn.is_connected() and self.cursor
+    except:
+        return False
 
-            # Debug info (remove password for security)
-            print(f"Attempting to connect to MySQL:")
-            print(f"  Host: {host}")
-            print(f"  Port: {port}")
-            print(f"  Database: {database}")
-            print(f"  User: {user}")
-            
-            self.conn = mysql.connector.connect(
-                host=host,
-                port=port,
-                database=database,
-                user=user,
-                password=password,
-                autocommit=False,
-                connect_timeout=30,  # 30 second timeout
-                auth_plugin='mysql_native_password'  # Use native auth
-            )
-            print("✓ Database connection successful!")
-            
-        except Error as e:
-            error_msg = f"Unable to load Database: {e}"
-            print(error_msg)
-            custom_error(error_msg)
-            
-            # Provide more specific error messages
-            if "Access denied" in str(e):
-                print("This usually means:")
-                print("1. Wrong username or password")
-                print("2. User doesn't have permission to access the database")
-                print("3. Connecting to wrong host (should it be a remote server?)")
-            elif "Can't connect to MySQL server" in str(e):
-                print("This usually means:")
-                print("1. MySQL server is not running")
-                print("2. Wrong host or port")
-                print("3. Firewall blocking the connection")
-                
+    def ensure_connection(self):
+        """Ensure database connection is active, reconnect if needed"""
+        if not self.is_connected():
+            print("Reconnecting to database...")
+            self.__init__()  # Reinitialize connection
+        return self.is_connected()
+
+    def safe_execute(self, query, params=None):
+        """Execute query with connection checking"""
+        if not self.ensure_connection():
+            print("No database connection available")
             return None
-        self.cursor = self.conn.cursor()
+        
+        try:
+            if params:
+                self.cursor.execute(query, params)
+            else:
+                self.cursor.execute(query)
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Query execution failed: {e}")
+            return None
+    def __init__(self): 
+    self.conn = None
+    self.cursor = None  # Initialize cursor first
+    
+    try:
+        DB_HOST="nozomi.proxy.rlwy.net"
+        DB_PORT=27858
+        DB_NAME="railway"
+        DB_USER="root"
+        DB_PASSWORD="YPcFdhkwAJbLGOTPXAsEWsCdiXBtvCWW"
+        
+        # Debug info (remove password for security)
+        print(f"Attempting to connect to MySQL:")
+        print(f"  Host: {DB_HOST}")
+        print(f"  Port: {DB_PORT}")
+        print(f"  Database: {DB_NAME}")
+        print(f"  User: {DB_USER}")
+        
+        self.conn = mysql.connector.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            autocommit=False,
+            connect_timeout=60,  # Increased timeout
+            connection_timeout=60,
+            pool_reset_session=True,
+            auth_plugin='mysql_native_password'
+        )
+        
+        if self.conn.is_connected():
+            self.cursor = self.conn.cursor()
+            print("✓ Database connection successful!")
+        else:
+            raise Exception("Connection established but not active")
+            
+    except Error as e:
+        error_msg = f"Unable to load Database: {e}"
+        print(error_msg)
+        
+        # Set both to None on failure
+        self.conn = None
+        self.cursor = None
+        
+        # Don't call custom_error here as it might cause issues in Streamlit
+        # custom_error(error_msg)
+        
+        # Provide more specific error messages
+        if "Access denied" in str(e):
+            print("This usually means:")
+            print("1. Wrong username or password")
+            print("2. User doesn't have permission to access the database")
+            print("3. Connecting to wrong host (should it be a remote server?)")
+        elif "Can't connect to MySQL server" in str(e):
+            print("This usually means:")
+            print("1. MySQL server is not running")
+            print("2. Wrong host or port")
+            print("3. Firewall blocking the connection")
+    
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        self.conn = None
+        self.cursor = None
 
     def get_status(self, email):
         query = "SELECT status FROM users WHERE email = %s"
@@ -331,12 +372,21 @@ class sqlpy:
         return chatgpt
         
     def is_admin(self, email):
-        self.cursor.execute("SELECT is_admin FROM users WHERE email = %s", (email,))
-        result = self.cursor.fetchone()
+        if not self.ensure_connection():
+            print("Database connection not available for is_admin check")
+            return "user"  # Safe default
         
-        if result is not None:
-            return "admin" if result[0] == 1 else "user"
-        return "user"  # Default to "user" if email is not found
+        try:
+            self.cursor.execute("SELECT is_admin FROM users WHERE email = %s", (email,))
+            result = self.cursor.fetchone()
+            
+            if result is not None:
+                return "admin" if result[0] == 1 else "user"
+            return "user"  # Default to "user" if email is not found
+            
+        except Exception as e:
+            print(f"is_admin query failed: {e}")
+            return "user"  # Safe default
 
     def change_user_gpt_status(self, id):
         # Fetch the email and chatgpt status of the user
