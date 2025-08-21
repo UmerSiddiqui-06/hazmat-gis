@@ -22,7 +22,7 @@ class sqlpy:
             self.__init__()  # Reinitialize connection
         return self.is_connected()
 
-    def safe_execute(self, query, params=None, fetch_one=False, fetch_all=False):
+    def safe_execute(self, query, params=None):
         """Execute query with connection checking"""
         if not self.ensure_connection():
             print("No database connection available")
@@ -33,14 +33,7 @@ class sqlpy:
                 self.cursor.execute(query, params)
             else:
                 self.cursor.execute(query)
-                
-            if fetch_one:
-                return self.cursor.fetchone()
-            elif fetch_all:
-                return self.cursor.fetchall()
-            else:
-                return True  # For INSERT/UPDATE/DELETE
-                
+            return self.cursor.fetchall()
         except Exception as e:
             print(f"Query execution failed: {e}")
             return None
@@ -226,22 +219,22 @@ class sqlpy:
         self.conn.commit()
 
     def check_login(self, email, input_password):
-        # Use the pooled connection approach
-        data = self.safe_execute(
-            "SELECT * FROM users WHERE email = %s", 
-            (email.lower(),), 
-            fetch_one=True
-        )
-        
+        # Fetch the stored hashed password for the given email
+        self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+        data = self.cursor.fetchone()
         print("data: ", data)
         if not data:
+            # Email does not exist in the database
             return None, None
 
-        stored_hashed_password = data[2]
-        
+        # Extract the hashed password from the database
+        stored_hashed_password = data[2]  # Assuming the password is stored in the third column
+
+        # Verify the input password with the stored hashed password
         if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
             return data[4], data[-3]
         else:
+            # Password does not match
             return None, None
 
     def get_users(self):
