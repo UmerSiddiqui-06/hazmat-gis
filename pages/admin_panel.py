@@ -260,7 +260,7 @@ def display_col1():
             text="Enter email to search...",
             value=[],
             suggestions=emails,
-            key="3",
+            key="user_search_col1",
         )
 
         if not selected_user:
@@ -275,7 +275,8 @@ def display_col1():
         ]
         gptlimit = df["ChatGpt_limit"]
         is_admin = df["is_admin"]
-        allow_download = df["allow_download"]  # Fetch the allow_download status from the DataFrame
+        allow_download = df["allow_download"]
+        twitterapi = df["twitterapi"]
 
         df = df.drop(
             [
@@ -286,35 +287,24 @@ def display_col1():
                 "Stopped Since",
                 "gptlimittype",
                 "is_admin",
-                "allow_download",  # Drop the column after fetching the status
+                "allow_download",
                 "twitterapi"
             ],
             axis=1,
         )
         df.columns = ["ID", "Email", "ChatGpt_limit"]
 
-        # Check for changes in the number of users and reinitialize session states
-        if (
-            "prev_user_count" not in st.session_state
-            or st.session_state.prev_user_count != len(users)
-            or "gpt_limit_state" not in st.session_state
-        ):
-            st.session_state.prev_user_count = len(users)  # Update user count
-            st.session_state.toggle_states_gpt = {
-                f"t{i}": gpt_status.iloc[i] for i in range(len(users))
-            }
-            st.session_state.toggle_states_status = {
-                f"t1{i}": login_status[i] for i in range(len(users))
-            }
-            st.session_state.gpt_limit_state = {
-                f"number{i}": gptlimit.iloc[i] for i in range(len(users))
-            }
-            st.session_state.is_admin_user = {
-                f"ia{i}": is_admin.iloc[i] for i in range(len(users))
-            }
-            st.session_state.allow_download_states = {
-                f"ad{i}": allow_download.iloc[i] for i in range(len(users))
-            }
+        # Initialize session states if they don't exist
+        if "toggle_states_gpt" not in st.session_state:
+            st.session_state.toggle_states_gpt = {}
+        if "toggle_states_status" not in st.session_state:
+            st.session_state.toggle_states_status = {}
+        if "gpt_limit_state" not in st.session_state:
+            st.session_state.gpt_limit_state = {}
+        if "is_admin_user" not in st.session_state:
+            st.session_state.is_admin_user = {}
+        if "allow_download_states" not in st.session_state:
+            st.session_state.allow_download_states = {}
 
         # Display header
         header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7, header_col8 = (
@@ -340,70 +330,105 @@ def display_col1():
             """,
             unsafe_allow_html=True,
         )
+        
         ID = 1
         # Iterate over the DataFrame rows
         for i, row in df.iterrows():
+            user_id = row["ID"]
+            email = row["Email"]
+            
+            # Create unique keys using both user_id and email hash to ensure uniqueness
+            user_hash = hash(email)  # Use email hash for additional uniqueness
+            
             col31, col32, col33, col34, col35, col36, col37, col38 = st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 1.5, 2, 1))
-            id = row["ID"]
-            email = row["Email"]  # Get the email for the current user
+            
             with col31:
                 st.markdown(f"#### {ID}", unsafe_allow_html=True)
                 ID += 1
+            
             with col32:
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
-            with col34:
-                toggle_key_1 = f"t{i}"
-                st.toggle(
-                    "Off / On",
-                    value=st.session_state.toggle_states_gpt[toggle_key_1],
-                    key=toggle_key_1,
-                    on_change=toggle_change_callback_gpt,
-                    args=(id, toggle_key_1),
-                )
+            
             with col33:
-                toggle_key = f"t1{i}"
+                # Access toggle - use unique key with user_id and hash
+                status_key = f"status_toggle_{user_id}_{user_hash}"
+                if status_key not in st.session_state.toggle_states_status:
+                    st.session_state.toggle_states_status[status_key] = bool(login_status[i])
+                
                 st.toggle(
                     "Revoke / Grant",
-                    value=st.session_state.toggle_states_status[toggle_key],
-                    key=toggle_key,
+                    value=st.session_state.toggle_states_status[status_key],
+                    key=status_key,
                     on_change=toggle_change_callback_status,
-                    args=(id, toggle_key),
+                    args=(user_id, status_key),
                 )
+            
+            with col34:
+                # GPT toggle
+                gpt_key = f"gpt_toggle_{user_id}_{user_hash}"
+                if gpt_key not in st.session_state.toggle_states_gpt:
+                    st.session_state.toggle_states_gpt[gpt_key] = bool(gpt_status.iloc[i])
+                
+                st.toggle(
+                    "Off / On",
+                    value=st.session_state.toggle_states_gpt[gpt_key],
+                    key=gpt_key,
+                    on_change=toggle_change_callback_gpt,
+                    args=(user_id, gpt_key),
+                )
+            
             with col35:
-                toggle_key_1 = f"ia{i}"
+                # Admin toggle
+                admin_key = f"admin_toggle_{user_id}_{user_hash}"
+                if admin_key not in st.session_state.is_admin_user:
+                    st.session_state.is_admin_user[admin_key] = bool(is_admin.iloc[i])
+                
                 st.toggle(
                     "Off / On",
-                    value=st.session_state.is_admin_user[toggle_key_1],
-                    key=toggle_key_1,
+                    value=st.session_state.is_admin_user[admin_key],
+                    key=admin_key,
                     on_change=toggle_change_user_admin,
-                    args=(id, toggle_key_1),
+                    args=(user_id, admin_key),
                 )
+            
             with col36:
-                toggle_key_2 = f"ad{i}"
+                # Download toggle
+                download_key = f"download_toggle_{user_id}_{user_hash}"
+                if download_key not in st.session_state.allow_download_states:
+                    st.session_state.allow_download_states[download_key] = bool(allow_download.iloc[i])
+                
                 st.toggle(
                     "Off / On",
-                    value=st.session_state.allow_download_states[toggle_key_2],
-                    key=toggle_key_2,
-                    on_change=lambda user_id=id, email=email, key=toggle_key_2: toggle_change_callback_download(user_id, email, key),
+                    value=st.session_state.allow_download_states[download_key],
+                    key=download_key,
+                    on_change=lambda user_id=user_id, email=email, key=download_key: toggle_change_callback_download(user_id, email, key),
                 )
+            
             with col37:
-                number_key = f"number{i}"
+                # GPT limit input
+                limit_key = f"limit_input_{user_id}_{user_hash}"
+                if limit_key not in st.session_state.gpt_limit_state:
+                    st.session_state.gpt_limit_state[limit_key] = gptlimit.iloc[i]
+                
                 st.number_input(
                     " ",
-                    key=number_key,
+                    key=limit_key,
                     label_visibility="collapsed",
-                    value=st.session_state.gpt_limit_state[number_key],
+                    value=st.session_state.gpt_limit_state[limit_key],
                     step=1,
                     format="%d",
                     on_change=increase_gpt_limit,
-                    args=(id, number_key),
+                    args=(user_id, limit_key),
                     min_value=0,
                 )
+            
             with col38:
-                if st.button("🗑", key=f"delete_{i}"):
+                delete_key = f"delete_{user_id}_{user_hash}"
+                if st.button("🗑", key=delete_key):
                     st.session_state.show_modal = True
                     st.session_state.delete_email = email
+            
             st.markdown(
                 """
                 <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
@@ -416,7 +441,6 @@ def display_col1():
                 and st.session_state.get("delete_email", False) == email
             ):
                 show_delete_confirmation_modal(st.session_state.delete_email)
-
 def display_col6():
     users = conn.get_users()
 

@@ -177,23 +177,28 @@ class sqlpy:
         self.conn.commit()
 
     def check_login(self, email, input_password):
-        # Fetch the stored hashed password for the given email
-        self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+        query = "SELECT * FROM users WHERE email = %s"
+        
+        # Use self.cursor.execute() instead of self.execute_query()
+        self.cursor.execute(query, (email,))
         data = self.cursor.fetchone()
-        print("data: ", data)
-        if not data:
-            # Email does not exist in the database
-            return None, None
-
-        # Extract the hashed password from the database
-        stored_hashed_password = data[2]  # Assuming the password is stored in the third column
-
-        # Verify the input password with the stored hashed password
-        if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password):
-            return data[4], data[-3]
+        
+        if data:
+            stored_hashed_password = data[2]  # This is a string from the database
+            
+            # Convert both to bytes for bcrypt
+            input_password_bytes = input_password.encode('utf-8')
+            stored_hashed_password_bytes = stored_hashed_password.encode('utf-8')
+            
+            # Verify the password
+            if bcrypt.checkpw(input_password_bytes, stored_hashed_password_bytes):
+                return data[4], data[-3]  # Return status and admin flag
+            else:
+                # Password does not match
+                return "Rejected", False
         else:
-            # Password does not match
-            return None, None
+            # User not found
+            return "Rejected", False
 
     def get_users(self):
         self.cursor.execute("SELECT * FROM users")
