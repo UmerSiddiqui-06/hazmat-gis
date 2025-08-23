@@ -89,7 +89,6 @@ class sqlpy:
                 autocommit=False,
                 connect_timeout=60,  # Increased timeout
                 connection_timeout=60,
-                ssl_disabled=True,
                 pool_reset_session=True,
                 auth_plugin='mysql_native_password'
             )
