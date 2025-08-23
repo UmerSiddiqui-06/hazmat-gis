@@ -7,13 +7,32 @@ from streamlit_modal import Modal
 import os
 import utitlity
 from io import BytesIO
-
 from docx import Document
 from geopy.geocoders import Nominatim
 from rapidfuzz import process
 import time
 from pages.db_path import db_path
 from custom_warnings import custom_error,custom_warning
+
+
+@st.cache_resource
+def get_database_connection():
+    """Get cached database connection that won't be garbage collected"""
+    conn = utitlity.sqlpy()
+    # Keep a strong reference to prevent garbage collection
+    if hasattr(conn, 'conn') and conn.conn:
+        conn._connection_ref = conn.conn  # Keep strong reference
+    return conn
+
+conn = get_database_connection()
+
+# Check if connection worked
+if not conn or not conn.cursor:
+    st.error("🚫 Database is temporarily unavailable.")
+    if st.button("🔄 Retry"):
+        st.cache_resource.clear()
+        st.rerun()
+    st.stop()
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
 )
@@ -21,12 +40,14 @@ from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
-conn = utitlity.sqlpy()
-if not conn:
-    st.stop()
+
 if cookies.get("user_type") == "admin":
     st.session_state.user_email = cookies.get("user_email")
-    st.session_state.user_type = conn.is_admin(st.session_state.user_email)
+    try:
+        st.session_state.user_type = conn.is_admin(st.session_state.user_email)
+    except Exception as e:
+        st.error(f"Admin verification failed: {e}")
+        st.session_state.user_type = "user"  # Safe default
 
 PATH = db_path()
 @st.cache_data
@@ -294,17 +315,28 @@ def display_col1():
         )
         df.columns = ["ID", "Email", "ChatGpt_limit"]
 
-        # Initialize session states if they don't exist
-        if "toggle_states_gpt" not in st.session_state:
-            st.session_state.toggle_states_gpt = {}
-        if "toggle_states_status" not in st.session_state:
-            st.session_state.toggle_states_status = {}
-        if "gpt_limit_state" not in st.session_state:
-            st.session_state.gpt_limit_state = {}
-        if "is_admin_user" not in st.session_state:
-            st.session_state.is_admin_user = {}
-        if "allow_download_states" not in st.session_state:
-            st.session_state.allow_download_states = {}
+        # Check for changes in the number of users and reinitialize session states
+        if (
+            "prev_user_count" not in st.session_state
+            or st.session_state.prev_user_count != len(users)
+            or "gpt_limit_state" not in st.session_state
+        ):
+            st.session_state.prev_user_count = len(users)  # Update user count
+            st.session_state.toggle_states_gpt = {
+                str(users[i][0]): gpt_status.iloc[i] for i in range(len(users))
+            }
+            st.session_state.toggle_states_status = {
+                f"status_{users[i][0]}": login_status[i] for i in range(len(users))
+            }
+            st.session_state.gpt_limit_state = {
+                f"limit_{users[i][0]}": gptlimit.iloc[i] for i in range(len(users))
+            }
+            st.session_state.is_admin_user = {
+                f"admin_{users[i][0]}": is_admin.iloc[i] for i in range(len(users))
+            }
+            st.session_state.allow_download_states = {
+                f"download_{users[i][0]}": allow_download.iloc[i] for i in range(len(users))
+            }
 
         # Display header
         header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7, header_col8 = (
@@ -349,17 +381,21 @@ def display_col1():
             with col32:
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
-            
+            with col34:
+                toggle_key_1 = str(id)
+                st.toggle(
+                    "Off / On",
+                    value=st.session_state.toggle_states_gpt[toggle_key_1],
+                    key=f"gpt_{id}_{i}",  # Add unique prefix for Streamlit key
+                    on_change=toggle_change_callback_gpt,
+                    args=(id, toggle_key_1),
+                )
             with col33:
-                # Access toggle - use unique key with user_id and hash
-                status_key = f"status_toggle_{user_id}_{user_hash}"
-                if status_key not in st.session_state.toggle_states_status:
-                    st.session_state.toggle_states_status[status_key] = bool(login_status[i])
-                
+                toggle_key = f"status_{id}"
                 st.toggle(
                     "Revoke / Grant",
-                    value=st.session_state.toggle_states_status[status_key],
-                    key=status_key,
+                    value=st.session_state.toggle_states_status[toggle_key],
+                    key=f"status_{id}_{i}",
                     on_change=toggle_change_callback_status,
                     args=(user_id, status_key),
                 )
@@ -379,41 +415,29 @@ def display_col1():
                 )
             
             with col35:
-                # Admin toggle
-                admin_key = f"admin_toggle_{user_id}_{user_hash}"
-                if admin_key not in st.session_state.is_admin_user:
-                    st.session_state.is_admin_user[admin_key] = bool(is_admin.iloc[i])
-                
+                admin_key = f"admin_{id}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.is_admin_user[admin_key],
-                    key=admin_key,
+                    key=f"admin_{id}_{i}",
                     on_change=toggle_change_user_admin,
-                    args=(user_id, admin_key),
+                    args=(id, admin_key),
                 )
             
             with col36:
-                # Download toggle
-                download_key = f"download_toggle_{user_id}_{user_hash}"
-                if download_key not in st.session_state.allow_download_states:
-                    st.session_state.allow_download_states[download_key] = bool(allow_download.iloc[i])
-                
+                download_key = f"download_{id}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.allow_download_states[download_key],
-                    key=download_key,
-                    on_change=lambda user_id=user_id, email=email, key=download_key: toggle_change_callback_download(user_id, email, key),
+                    key=f"download_{id}_{i}",
+                    on_change=lambda user_id=id, email=email, key=download_key: toggle_change_callback_download(user_id, email, key),
                 )
             
             with col37:
-                # GPT limit input
-                limit_key = f"limit_input_{user_id}_{user_hash}"
-                if limit_key not in st.session_state.gpt_limit_state:
-                    st.session_state.gpt_limit_state[limit_key] = gptlimit.iloc[i]
-                
+                number_key = f"limit_{id}"
                 st.number_input(
                     " ",
-                    key=limit_key,
+                    key=f"limit_{id}_{i}",
                     label_visibility="collapsed",
                     value=st.session_state.gpt_limit_state[limit_key],
                     step=1,
@@ -504,7 +528,7 @@ def display_col6():
         ):
             st.session_state.prev_user_count = len(users)  # Update user count
             st.session_state.twitter_access_states = {
-                f"twitter{i}": twitter_access.iloc[i] for i in range(len(users))
+                f"twitter_{users[i][0]}": twitter_access.iloc[i] for i in range(len(users))
             }
 
         # Display header
@@ -536,11 +560,11 @@ def display_col6():
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
             with col33:
-                toggle_key_1 = f"twitter{i}"
+                toggle_key_1 = f"twitter_{id}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.twitter_access_states[toggle_key_1],
-                    key=toggle_key_1,
+                    key=f"twitter_{id}_{i}",  # Add row index for uniqueness
                     on_change=toggle_twitter_access,
                     args=(id, toggle_key_1),
                 )

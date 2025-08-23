@@ -5,45 +5,110 @@ import bcrypt
 from dateutil.relativedelta import relativedelta
 from custom_warnings import custom_error
 from decouple import config
+import streamlit as st
+# @st.cache_resource
+# def get_database_connection():
+#     return utitlity.sqlpy()
+
+# # Use cached connection instead of creating new ones
+# conn = get_database_connection()
+
+# # Check if connection worked
+# if not conn or not conn.cursor:
+#     st.error("Database connection failed. Please try again in a few minutes.")
+#     st.stop()
 
 class sqlpy:
+    def close_connection(self):
+        """Properly close database connection"""
+        try:
+            if self.cursor:
+                self.cursor.close()
+            if self.conn:
+                self.conn.close()
+            print("Database connection closed")
+        except:
+            pass
+        finally:
+            self.cursor = None
+            self.conn = None
+    def is_connected(self):
+        """Check if database connection is active"""
+        try:
+            return self.conn and self.conn.is_connected() and self.cursor
+        except:
+            return False
+            
+
+    def ensure_connection(self):
+        """Ensure database connection is active, reconnect if needed"""
+        if not self.is_connected():
+            print("Reconnecting to database...")
+            self.__init__()  # Reinitialize connection
+        return self.is_connected()
+
+    def safe_execute(self, query, params=None):
+        """Execute query with connection checking"""
+        if not self.ensure_connection():
+            print("No database connection available")
+            return None
+        
+        try:
+            if params:
+                self.cursor.execute(query, params)
+            else:
+                self.cursor.execute(query)
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Query execution failed: {e}")
+            return None
     def __init__(self): 
+        self.conn = None
+        self.cursor = None  # Initialize cursor first
+        
         try:
             DB_HOST="nozomi.proxy.rlwy.net"
             DB_PORT=27858
             DB_NAME="railway"
             DB_USER="root"
             DB_PASSWORD="YPcFdhkwAJbLGOTPXAsEWsCdiXBtvCWW"
-            # Get connection parameters
-            host = DB_HOST
-            port = DB_PORT
-            database = DB_NAME
-            user = DB_USER
-            password = DB_PASSWORD
-
+            
             # Debug info (remove password for security)
             print(f"Attempting to connect to MySQL:")
-            print(f"  Host: {host}")
-            print(f"  Port: {port}")
-            print(f"  Database: {database}")
-            print(f"  User: {user}")
+            print(f"  Host: {DB_HOST}")
+            print(f"  Port: {DB_PORT}")
+            print(f"  Database: {DB_NAME}")
+            print(f"  User: {DB_USER}")
             
             self.conn = mysql.connector.connect(
-                host=host,
-                port=port,
-                database=database,
-                user=user,
-                password=password,
+                host=DB_HOST,
+                port=DB_PORT,
+                database=DB_NAME,
+                user=DB_USER,
+                password=DB_PASSWORD,
                 autocommit=False,
-                connect_timeout=30,  # 30 second timeout
-                auth_plugin='mysql_native_password'  # Use native auth
+                connect_timeout=60,  # Increased timeout
+                connection_timeout=60,
+                pool_reset_session=True,
+                auth_plugin='mysql_native_password'
             )
-            print("✓ Database connection successful!")
             
+            if self.conn.is_connected():
+                self.cursor = self.conn.cursor()
+                print("✓ Database connection successful!")
+            else:
+                raise Exception("Connection established but not active")
+                
         except Error as e:
             error_msg = f"Unable to load Database: {e}"
             print(error_msg)
-            custom_error(error_msg)
+            
+            # Set both to None on failure
+            self.conn = None
+            self.cursor = None
+            
+            # Don't call custom_error here as it might cause issues in Streamlit
+            # custom_error(error_msg)
             
             # Provide more specific error messages
             if "Access denied" in str(e):
@@ -56,9 +121,11 @@ class sqlpy:
                 print("1. MySQL server is not running")
                 print("2. Wrong host or port")
                 print("3. Firewall blocking the connection")
-                
-            return None
-        self.cursor = self.conn.cursor()
+        
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            self.conn = None
+            self.cursor = None
 
     def get_status(self, email):
         query = "SELECT status FROM users WHERE email = %s"
@@ -176,29 +243,55 @@ class sqlpy:
 
         self.conn.commit()
 
+    # def check_login(self, email, input_password):
+    #     # Fetch the stored hashed password for the given email
+    #     self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+    #     data = self.cursor.fetchone()
+    #     print("data: ", data)
+    #     if not data:
+    #         # Email does not exist in the database
+    #         return None, None
+
+    #     # Extract the hashed password from the database
+    #     stored_hashed_password = data[2]  # Assuming the password is stored in the third column
+
+    #     # Verify the input password with the stored hashed password
+    #     if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
+    #         return data[4], data[-3]
+    #     else:
+    #         # Password does not match
+    #         return None, None
+    
+
     def check_login(self, email, input_password):
-        query = "SELECT * FROM users WHERE email = %s"
+        # Simple check - if cursor is None, the connection failed
+        if not self.cursor:
+            print("❌ Database connection failed - cursor is None")
+            return None, None
         
-        # Use self.cursor.execute() instead of self.execute_query()
-        self.cursor.execute(query, (email,))
-        data = self.cursor.fetchone()
-        
-        if data:
-            stored_hashed_password = data[2]  # This is a string from the database
+        try:
+            # Fetch the stored hashed password for the given email
+            self.cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+            data = self.cursor.fetchone()
+            print("data: ", data)
             
-            # Convert both to bytes for bcrypt
-            input_password_bytes = input_password.encode('utf-8')
-            stored_hashed_password_bytes = stored_hashed_password.encode('utf-8')
-            
-            # Verify the password
-            if bcrypt.checkpw(input_password_bytes, stored_hashed_password_bytes):
-                return data[4], data[-3]  # Return status and admin flag
+            if not data:
+                # Email does not exist in the database
+                return None, None
+
+            # Extract the hashed password from the database
+            stored_hashed_password = data[2]
+
+            # Verify the input password with the stored hashed password
+            if bcrypt.checkpw(input_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
+                return data[4], data[-3]
             else:
                 # Password does not match
-                return "Rejected", False
-        else:
-            # User not found
-            return "Rejected", False
+                return None, None
+                
+        except Exception as e:
+            print(f"❌ Database error during login: {e}")
+            return None, None  # Return None instead of raising error
 
     def get_users(self):
         self.cursor.execute("SELECT * FROM users")
@@ -336,12 +429,21 @@ class sqlpy:
         return chatgpt
         
     def is_admin(self, email):
-        self.cursor.execute("SELECT is_admin FROM users WHERE email = %s", (email,))
-        result = self.cursor.fetchone()
+        if not self.ensure_connection():
+            print("Database connection not available for is_admin check")
+            return "user"  # Safe default
         
-        if result is not None:
-            return "admin" if result[0] == 1 else "user"
-        return "user"  # Default to "user" if email is not found
+        try:
+            self.cursor.execute("SELECT is_admin FROM users WHERE email = %s", (email,))
+            result = self.cursor.fetchone()
+            
+            if result is not None:
+                return "admin" if result[0] == 1 else "user"
+            return "user"  # Default to "user" if email is not found
+            
+        except Exception as e:
+            print(f"is_admin query failed: {e}")
+            return "user"  # Safe default
 
     def change_user_gpt_status(self, id):
         # Fetch the email and chatgpt status of the user

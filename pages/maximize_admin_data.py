@@ -5,6 +5,21 @@ import time
 import pandas as pd
 import os
 from pages.db_path import db_path
+import utitlity
+
+@st.cache_resource
+def get_database_connection():
+    return utitlity.sqlpy()
+
+conn = get_database_connection()
+
+# Check if connection worked
+if not conn or not conn.cursor:
+    st.error("🚫 Database is temporarily unavailable.")
+    if st.button("🔄 Retry"):
+        st.cache_resource.clear()
+        st.rerun()
+    st.stop()
 st.set_page_config(
     page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="collapsed",layout="wide")
 from streamlit_cookies_manager import EncryptedCookieManager

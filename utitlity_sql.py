@@ -1,4 +1,4 @@
-import mysql.connector
+import mysql.connector.pooling
 from mysql.connector import Error
 from datetime import datetime, timedelta
 import bcrypt
@@ -23,16 +23,23 @@ class sqlpy:
             print(f"  Database: {database}")
             print(f"  User: {user}")
             
-            self.conn = mysql.connector.connect(
-                host=host,
-                port=port,
-                database=database,
-                user=user,
-                password=password,
-                autocommit=False,
-                connect_timeout=30,  # 30 second timeout
-                auth_plugin='mysql_native_password'  # Use native auth
-            )
+            if not hasattr(sqlpy, '_pool'):
+                sqlpy._pool = mysql.connector.pooling.MySQLConnectionPool(
+                    pool_name='hazmat_pool',
+                    pool_size=5,  # Adjust based on Railway limits
+                    pool_reset_session=True,
+                    host=host,
+                    port=port,
+                    database=database,
+                    user=user,
+                    password=password,
+                    autocommit=False,
+                    connect_timeout=30,
+                    auth_plugin='mysql_native_password'
+                )
+                print("✓ Connection pool created!")
+
+            self.conn = sqlpy._pool.get_connection()
             print("✓ Database connection successful!")
             
         except Error as e:
@@ -64,6 +71,12 @@ class sqlpy:
         else:
             return None
 
+    def __del__(self):
+        """Clean up connection when object is destroyed"""
+        if hasattr(self, 'cursor') and self.cursor:
+            self.cursor.close()
+        if hasattr(self, 'conn') and self.conn:
+            self.conn.close()  # Returns connection to pool
     def change_admin(self, user_id):
         # Fetch the email and is_admin value
         self.cursor.execute("SELECT email, is_admin FROM users WHERE user_id = %s", (user_id,))
