@@ -281,7 +281,7 @@ def display_col1():
             text="Enter email to search...",
             value=[],
             suggestions=emails,
-            key="3",
+            key="user_search_col1",
         )
 
         if not selected_user:
@@ -296,7 +296,8 @@ def display_col1():
         ]
         gptlimit = df["ChatGpt_limit"]
         is_admin = df["is_admin"]
-        allow_download = df["allow_download"]  # Fetch the allow_download status from the DataFrame
+        allow_download = df["allow_download"]
+        twitterapi = df["twitterapi"]
 
         df = df.drop(
             [
@@ -307,7 +308,7 @@ def display_col1():
                 "Stopped Since",
                 "gptlimittype",
                 "is_admin",
-                "allow_download",  # Drop the column after fetching the status
+                "allow_download",
                 "twitterapi"
             ],
             axis=1,
@@ -361,15 +362,22 @@ def display_col1():
             """,
             unsafe_allow_html=True,
         )
+        
         ID = 1
         # Iterate over the DataFrame rows
         for i, row in df.iterrows():
+            user_id = row["ID"]
+            email = row["Email"]
+            
+            # Create unique keys using both user_id and email hash to ensure uniqueness
+            user_hash = hash(email)  # Use email hash for additional uniqueness
+            
             col31, col32, col33, col34, col35, col36, col37, col38 = st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 1.5, 2, 1))
-            id = row["ID"]
-            email = row["Email"]  # Get the email for the current user
+            
             with col31:
                 st.markdown(f"#### {ID}", unsafe_allow_html=True)
                 ID += 1
+            
             with col32:
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
@@ -389,8 +397,23 @@ def display_col1():
                     value=st.session_state.toggle_states_status[toggle_key],
                     key=f"status_{id}_{i}",
                     on_change=toggle_change_callback_status,
-                    args=(id, toggle_key),
+                    args=(user_id, status_key),
                 )
+            
+            with col34:
+                # GPT toggle
+                gpt_key = f"gpt_toggle_{user_id}_{user_hash}"
+                if gpt_key not in st.session_state.toggle_states_gpt:
+                    st.session_state.toggle_states_gpt[gpt_key] = bool(gpt_status.iloc[i])
+                
+                st.toggle(
+                    "Off / On",
+                    value=st.session_state.toggle_states_gpt[gpt_key],
+                    key=gpt_key,
+                    on_change=toggle_change_callback_gpt,
+                    args=(user_id, gpt_key),
+                )
+            
             with col35:
                 admin_key = f"admin_{id}"
                 st.toggle(
@@ -400,6 +423,7 @@ def display_col1():
                     on_change=toggle_change_user_admin,
                     args=(id, admin_key),
                 )
+            
             with col36:
                 download_key = f"download_{id}"
                 st.toggle(
@@ -408,23 +432,27 @@ def display_col1():
                     key=f"download_{id}_{i}",
                     on_change=lambda user_id=id, email=email, key=download_key: toggle_change_callback_download(user_id, email, key),
                 )
+            
             with col37:
                 number_key = f"limit_{id}"
                 st.number_input(
                     " ",
                     key=f"limit_{id}_{i}",
                     label_visibility="collapsed",
-                    value=st.session_state.gpt_limit_state[number_key],
+                    value=st.session_state.gpt_limit_state[limit_key],
                     step=1,
                     format="%d",
                     on_change=increase_gpt_limit,
-                    args=(id, number_key),
+                    args=(user_id, limit_key),
                     min_value=0,
                 )
+            
             with col38:
-                if st.button("🗑", key=f"delete_{i}"):
+                delete_key = f"delete_{user_id}_{user_hash}"
+                if st.button("🗑", key=delete_key):
                     st.session_state.show_modal = True
                     st.session_state.delete_email = email
+            
             st.markdown(
                 """
                 <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
@@ -437,7 +465,6 @@ def display_col1():
                 and st.session_state.get("delete_email", False) == email
             ):
                 show_delete_confirmation_modal(st.session_state.delete_email)
-
 def display_col6():
     users = conn.get_users()
 
