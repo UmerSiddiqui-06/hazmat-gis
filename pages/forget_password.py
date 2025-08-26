@@ -1,14 +1,14 @@
 import streamlit as st
-import utitlity
+from db import sqlpy
 import json
 import yagmail
 import time
 import string
 import random
-from custom_warnings import custom_error
+from components.custom_warnings import custom_error
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -20,8 +20,8 @@ if not conn or not conn.cursor:
         st.rerun()
     st.stop()
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
-conn = utitlity.sqlpy()
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto")
+conn = sqlpy.sqlpy()
 if not conn:
     st.stop()
 def generate_temp_password(length=8):

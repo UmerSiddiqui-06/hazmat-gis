@@ -1,4 +1,4 @@
-SERVER_PATH = "/var/data"
+SERVER_PATH = "./var/data"
 LOCAL_PATH = "var/data"
 import os
 def db_path():

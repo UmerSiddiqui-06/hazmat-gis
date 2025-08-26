@@ -1,10 +1,10 @@
 import streamlit as st
-import utitlity
+from db import sqlpy
 import time
-from custom_warnings import custom_error, custom_warning
+from components.custom_warnings import custom_error, custom_warning
 
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
@@ -14,7 +14,7 @@ if not cookies.ready():
 @st.cache_resource
 def get_database_connection():
     """Single cached database connection for the entire app"""
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 # Get the single cached connection
 conn = get_database_connection()
@@ -76,7 +76,7 @@ def login_page():
     # Logo and title
     c1, c2, c3 = st.columns(3)
     with c2:
-        st.image("logo1.png", width=300)  # Add logo
+        st.image("assets/logo.png", width=300)  # Add logo
     c1, c2, c3 = st.columns((3.8, 7, 2))
     with c2:
         st.header("HazMat GIS - Login")

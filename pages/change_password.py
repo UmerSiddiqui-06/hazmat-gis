@@ -1,11 +1,11 @@
 import streamlit as st
-import utitlity
+from db import sqlpy
 import re
-from custom_warnings import custom_warning
+from components.custom_warnings import custom_warning
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -16,11 +16,11 @@ if not conn or not conn.cursor:
         st.cache_resource.clear()
         st.rerun()
     st.stop()
-conn = utitlity.sqlpy()
+conn = sqlpy.sqlpy()
 if not conn:
     st.stop()
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto")
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():

@@ -1,10 +1,10 @@
 import streamlit as st
-from custom_warnings import custom_error
-import utitlity
+from components.custom_warnings import custom_error
+from db import sqlpy
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -16,7 +16,7 @@ if not conn or not conn.cursor:
         st.rerun()
     st.stop()
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto")
 def rejected_page():
     columns = st.columns((2, 6, 2))
     with columns[1]:

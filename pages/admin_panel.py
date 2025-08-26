@@ -5,20 +5,20 @@ import datetime
 from streamlit_tags import st_tags
 from streamlit_modal import Modal
 import os
-import utitlity
+from db import sqlpy
 from io import BytesIO
 from docx import Document
 from geopy.geocoders import Nominatim
 from rapidfuzz import process
 import time
 from pages.db_path import db_path
-from custom_warnings import custom_error,custom_warning
+from components.custom_warnings import custom_error,custom_warning
 
 
 @st.cache_resource
 def get_database_connection():
     """Get cached database connection that won't be garbage collected"""
-    conn = utitlity.sqlpy()
+    conn = sqlpy.sqlpy()
     # Keep a strong reference to prevent garbage collection
     if hasattr(conn, 'conn') and conn.conn:
         conn._connection_ref = conn.conn  # Keep strong reference
@@ -34,7 +34,7 @@ if not conn or not conn.cursor:
         st.rerun()
     st.stop()
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto",layout="wide"
 )
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
@@ -52,7 +52,7 @@ if cookies.get("user_type") == "admin":
 PATH = db_path()
 @st.cache_data
 def load_world_cities():
-    return pd.read_csv("worldcities.csv")
+    return pd.read_csv("assets/worldcities.csv")
 @st.cache_data
 def fuzzy_match_city(city_name, limit=5, threshold=70):
     cities = load_world_cities()["city"].unique()  # Load unique city names
@@ -162,7 +162,7 @@ def render_aggrid(df_display, user_type, filename="temp"):
     gb.configure_column("City", minWidth=200)
     gb.configure_column("Date", minWidth=100)
     gb.configure_column("Impact", minWidth=150)
-    gb.configure_column("Casuality", minWidth=50)
+    gb.configure_column("Csuality", minWidth=50)
     gb.configure_column("Injuries", minWidth=50)
     gb.configure_column("Full Link", minWidth=100)
     gb.configure_column("Severity", minWidth=100)
@@ -368,44 +368,40 @@ def display_col1():
         for i, row in df.iterrows():
             user_id = row["ID"]
             email = row["Email"]
-            
-            # Create unique keys using both user_id and email hash to ensure uniqueness
-            user_hash = hash(email)  # Use email hash for additional uniqueness
-            
-            col31, col32, col33, col34, col35, col36, col37, col38 = st.columns((0.7, 2.8, 1.5, 1.5, 1.5, 1.5, 2, 1))
-            
+
+            # Use email hash for extra uniqueness
+            user_hash = hash(email)
+
+            col31, col32, col33, col34, col35, col36, col37, col38 = st.columns(
+                (0.7, 2.8, 1.5, 1.5, 1.5, 1.5, 2, 1)
+            )
+
             with col31:
-                st.markdown(f"#### {ID}", unsafe_allow_html=True)
-                ID += 1
-            
+                st.markdown(f"#### {user_id}", unsafe_allow_html=True)
+
             with col32:
-                st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
-            with col34:
-                toggle_key_1 = str(id)
-                st.toggle(
-                    "Off / On",
-                    value=st.session_state.toggle_states_gpt[toggle_key_1],
-                    key=f"gpt_{id}_{i}",  # Add unique prefix for Streamlit key
-                    on_change=toggle_change_callback_gpt,
-                    args=(id, toggle_key_1),
-                )
+
+            # Status toggle
             with col33:
-                toggle_key = f"status_{id}"
+                status_key = f"status_{user_id}"
+                if status_key not in st.session_state.toggle_states_status:
+                    st.session_state.toggle_states_status[status_key] = False
+
                 st.toggle(
                     "Revoke / Grant",
-                    value=st.session_state.toggle_states_status[toggle_key],
-                    key=f"status_{id}_{i}",
+                    value=st.session_state.toggle_states_status[status_key],
+                    key=f"{status_key}_{i}",
                     on_change=toggle_change_callback_status,
                     args=(user_id, status_key),
                 )
-            
+
+            # GPT toggle
             with col34:
-                # GPT toggle
                 gpt_key = f"gpt_toggle_{user_id}_{user_hash}"
                 if gpt_key not in st.session_state.toggle_states_gpt:
                     st.session_state.toggle_states_gpt[gpt_key] = bool(gpt_status.iloc[i])
-                
+
                 st.toggle(
                     "Off / On",
                     value=st.session_state.toggle_states_gpt[gpt_key],
@@ -413,31 +409,44 @@ def display_col1():
                     on_change=toggle_change_callback_gpt,
                     args=(user_id, gpt_key),
                 )
-            
+
+            # Admin toggle
             with col35:
-                admin_key = f"admin_{id}"
+                admin_key = f"admin_{user_id}"
+                if admin_key not in st.session_state.is_admin_user:
+                    st.session_state.is_admin_user[admin_key] = False
+
                 st.toggle(
                     "Off / On",
                     value=st.session_state.is_admin_user[admin_key],
-                    key=f"admin_{id}_{i}",
+                    key=f"{admin_key}_{i}",
                     on_change=toggle_change_user_admin,
-                    args=(id, admin_key),
+                    args=(user_id, admin_key),
                 )
-            
+
+            # Download toggle
             with col36:
-                download_key = f"download_{id}"
+                download_key = f"download_{user_id}"
+                if download_key not in st.session_state.allow_download_states:
+                    st.session_state.allow_download_states[download_key] = False
+
                 st.toggle(
                     "Off / On",
                     value=st.session_state.allow_download_states[download_key],
-                    key=f"download_{id}_{i}",
-                    on_change=lambda user_id=id, email=email, key=download_key: toggle_change_callback_download(user_id, email, key),
+                    key=f"{download_key}_{i}",
+                    on_change=lambda user_id=user_id, email=email, key=download_key:
+                        toggle_change_callback_download(user_id, email, key),
                 )
-            
+
+            # GPT limit number input
             with col37:
-                number_key = f"limit_{id}"
+                limit_key = f"limit_{user_id}"
+                if limit_key not in st.session_state.gpt_limit_state:
+                    st.session_state.gpt_limit_state[limit_key] = 0
+
                 st.number_input(
                     " ",
-                    key=f"limit_{id}_{i}",
+                    key=f"{limit_key}_{i}",
                     label_visibility="collapsed",
                     value=st.session_state.gpt_limit_state[limit_key],
                     step=1,
@@ -446,13 +455,14 @@ def display_col1():
                     args=(user_id, limit_key),
                     min_value=0,
                 )
-            
+
+            # Delete button
             with col38:
                 delete_key = f"delete_{user_id}_{user_hash}"
                 if st.button("🗑", key=delete_key):
                     st.session_state.show_modal = True
                     st.session_state.delete_email = email
-            
+
             st.markdown(
                 """
                 <div style="border-top: 1px solid #ccc; margin: 5px 0;"></div>
@@ -460,11 +470,13 @@ def display_col1():
                 unsafe_allow_html=True,
             )
 
+            # Show delete confirmation modal if needed
             if (
                 st.session_state.get("show_modal", False)
-                and st.session_state.get("delete_email", False) == email
+                and st.session_state.get("delete_email", "") == email
             ):
                 show_delete_confirmation_modal(st.session_state.delete_email)
+
 def display_col6():
     users = conn.get_users()
 
@@ -551,7 +563,7 @@ def display_col6():
         # Iterate over the DataFrame rows
         for i, row in df.iterrows():
             col31, col32, col33 = st.columns((0.7, 2.8, 1.5))
-            id = row["ID"]
+            record_id = row["ID"]
             email = row["Email"]  # Get the email for the current user
             with col31:
                 st.markdown(f"#### {ID}", unsafe_allow_html=True)
@@ -560,13 +572,13 @@ def display_col6():
                 st.write("")
                 st.markdown(f"###### {email}", unsafe_allow_html=True)
             with col33:
-                toggle_key_1 = f"twitter_{id}"
+                toggle_key_1 = f"twitter_{record_id}"
                 st.toggle(
                     "Off / On",
                     value=st.session_state.twitter_access_states[toggle_key_1],
-                    key=f"twitter_{id}_{i}",  # Add row index for uniqueness
+                    key=f"twitter_{record_id}_{i}",  # Add row index for uniqueness
                     on_change=toggle_twitter_access,
-                    args=(id, toggle_key_1),
+                    args=(record_id, toggle_key_1),
                 )
             st.markdown(
                 """

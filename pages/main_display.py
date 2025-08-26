@@ -8,18 +8,18 @@ import plotly.express as px
 from rapidfuzz import process
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
 from st_aggrid.shared import JsCode
-import utitlity
+from db import sqlpy
 from openai import OpenAI
 import os
 from docx import Document
 from io import BytesIO
 import ast
-from custom_warnings import custom_error, custom_warning
+from components.custom_warnings import custom_error, custom_warning
 from pages.db_path import db_path
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -37,13 +37,13 @@ ORIGINAL_FILES_PATH = os.path.join(PATH, "original_files")
 # Ensure the directory exists
 os.makedirs(ORIGINAL_FILES_PATH, exist_ok=True)
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto",layout="wide"
 )
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
-conn = utitlity.sqlpy()
+conn = sqlpy.sqlpy()
 if not conn:
     st.stop()
 if cookies.get("logged_in") == "True":
@@ -66,7 +66,7 @@ def get_download_status():
 
 @st.cache_data
 def standardize_country_column(column):
-    country_list = load_country_list("worldcountries.txt")
+    country_list = load_country_list("assets/worldcountries.txt")
     country_variations = {
         "UAE": "United Arab Emirates",
         "United Arab Emirates": "United Arab Emirates",
@@ -235,7 +235,7 @@ def group_data_by_title_location_and_date(filtered_data):
     ).agg({
         'Impact': lambda x: ', '.join(sorted(set(x.astype(str).str.split(', ').explode().unique()))),
         'Severity': 'first',
-        'Casuality': 'first',
+        'Csuality': 'first',
         'Injuries': 'first',
         'Full Link': 'first',
     }).reset_index()
@@ -488,7 +488,7 @@ def render_aggrid_data(df_display, user_type, user_email):
     gb.configure_column("City", minWidth=200)
     gb.configure_column("Date", minWidth=100)
     gb.configure_column("Impact", minWidth=150)
-    gb.configure_column("Casuality", minWidth=50)
+    gb.configure_column("Csuality", minWidth=50)
     gb.configure_column("Injuries", minWidth=50)
     gb.configure_column("Full Link", minWidth=100)
     gb.configure_column("Severity", minWidth=100)
@@ -645,8 +645,8 @@ def create_popup_content(row):
                 <td style="padding: 8px; border: 1px solid #ddd;">{row['City']}, {row['Country']}</td>
             </tr>
             <tr>
-                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Casuality:</strong></td>
-                <td style="padding: 8px; border: 1px solid #ddd;">{int(row['Casuality']) if pd.notna(row['Casuality']) else 0}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Csuality:</strong></td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{int(row['Csuality']) if pd.notna(row['Csuality']) else 0}</td>
             </tr>
             <tr style="background-color: #f2f2f2;">
                 <td style="padding: 8px; border: 1px solid #ddd;"><strong>Injuries:</strong></td>
@@ -944,7 +944,7 @@ def main_display(user_type, user_email):
                     "Country",
                     "City",
                     "Date",
-                    "Casuality",
+                    "Csuality",
                     "Injuries",
                     "Impact",
                     "Severity",
@@ -958,7 +958,7 @@ def main_display(user_type, user_email):
                     "Country",
                     "City",
                     "Date",
-                    "Casuality",
+                    "Csuality",
                     "Injuries",
                     "Impact",
                     "Severity",

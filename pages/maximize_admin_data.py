@@ -5,11 +5,11 @@ import time
 import pandas as pd
 import os
 from pages.db_path import db_path
-import utitlity
+from db import sqlpy
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -21,7 +21,7 @@ if not conn or not conn.cursor:
         st.rerun()
     st.stop()
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="collapsed",layout="wide")
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="collapsed",layout="wide")
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
@@ -79,7 +79,7 @@ def render_aggrid(df_display,filename="temp"):
     gb.configure_column("City")
     gb.configure_column("Date")
     gb.configure_column("Impact")
-    gb.configure_column("Casuality")
+    gb.configure_column("Csuality")
     gb.configure_column("Injuries")
     gb.configure_column("Full Link")
     gb.configure_column("Severity")

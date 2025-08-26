@@ -1,9 +1,9 @@
 import streamlit as st
-import utitlity
+from db import sqlpy
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -15,7 +15,7 @@ if not conn or not conn.cursor:
         st.rerun()
     st.stop()
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto"
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto"
 )
 hide_sidebar_css = """
     <style>
