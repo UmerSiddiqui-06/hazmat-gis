@@ -16,6 +16,8 @@ from io import BytesIO
 import ast
 from components.custom_warnings import custom_error, custom_warning
 from pages.db_path import db_path
+import requests 
+
 
 @st.cache_resource
 def get_database_connection():
@@ -43,7 +45,6 @@ from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
-conn = sqlpy.sqlpy()
 if not conn:
     st.stop()
 if cookies.get("logged_in") == "True":
@@ -64,6 +65,8 @@ def load_country_list(file_path):
 def get_download_status():
     return conn.get_download_status()
 
+
+
 @st.cache_data
 def standardize_country_column(column):
     country_list = load_country_list("assets/worldcountries.txt")
@@ -81,21 +84,34 @@ def standardize_country_column(column):
         "Republic of Korea": "South Korea",
     }
 
-    def standardize_name(name):
-        # Check for known variations
-        if name in country_variations:
-            return country_variations[name]
-        # Fuzzy match if not in variations
-        match = process.extractOne(name, country_list)
-        return match[0] if match[1] > 80 else "Unknown"
+    # cache results locally to avoid recomputation
+    cache = {}
 
-    # Apply the standardization function
-    return column.apply(standardize_name)
+    def standardize_name(name):
+        if name in cache:
+            return cache[name]
+        # check for known variations
+        if name in country_variations:
+            result = country_variations[name]
+        else:
+            match = process.extractOne(name, country_list)
+            result = match[0] if match and match[1] > 80 else "Unknown"
+        cache[name] = result
+        return result
+
+    # only compute unique names once
+    unique_names = column.unique()
+    standardized_map = {name: standardize_name(name) for name in unique_names}
+    return column.map(standardized_map)
 
 @st.cache_data
 def load_world():
-    url = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
-    return gpd.read_file(url)
+    local_path = os.path.join("assets", "world.geojson")
+    if not os.path.exists(local_path):
+        url = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
+        with open(local_path, "wb") as f:
+            f.write(requests.get(url).content)
+    return gpd.read_file(local_path)
 
 @st.cache_data
 def filter_data(
@@ -194,23 +210,29 @@ def apply_filters_with_regex(data, filters):
         ]
 
     return data
-def load_data():
+
+def get_files_signature(folder):
+    """Create a signature of (filename, last modified time, size) for all Excel files."""
+    sig = []
+    for file_name in os.listdir(folder):
+        if file_name.endswith((".xlsx", ".xls")):
+            path = os.path.join(folder, file_name)
+            sig.append((file_name, os.path.getmtime(path), os.path.getsize(path)))
+    return tuple(sorted(sig))  # hashable, used as cache key
+
+
+@st.cache_data
+def load_data(files_signature, folder):
     try:
         dataframes = []
+        for file_name, _, _ in files_signature:  # unpack 3 values
+            file_path = os.path.join(folder, file_name)
+            df = pd.read_excel(file_path)
+            dataframes.append(df)
 
-        # Iterate over all files in the folder
-        for file_name in os.listdir(f"{PATH}"):
-            # Build the full file path
-            file_path = os.path.join(f"{PATH}", file_name)
-
-            # Check if the file is an Excel file
-            if file_name.endswith((".xlsx", ".xls")):
-                # Read the Excel file into a DataFrame and append to the list
-                df = pd.read_excel(file_path)
-                dataframes.append(df)
-        if len(dataframes) == 0:
+        if not dataframes:
             return None
-        # Concatenate all DataFrames into a single DataFrame
+
         data = pd.concat(dataframes, ignore_index=True)
         data["Date"] = pd.to_datetime(data["Date"], errors="coerce").dt.normalize()
         data["Country"] = standardize_country_column(data["Country"])
@@ -218,11 +240,13 @@ def load_data():
             lambda x: ast.literal_eval(x) if isinstance(x, str) else None
         )
         data = data.drop_duplicates()
+        return data
+
     except Exception as e:
         custom_error(f"Error Occured while loading Data: {e}")
         st.stop()
-    return data
-@st.cache_resource
+
+@st.cache_data
 def group_data_by_title_location_and_date(filtered_data):
     # First, explode the Category column to handle multiple categories per row
     filtered_data = filtered_data.copy()
@@ -244,14 +268,15 @@ def group_data_by_title_location_and_date(filtered_data):
 
 #country base+spiral fixed.
 
-def create_folium_map(filtered_data, _world, selected_categories=None):
-    if filtered_data is None or _world is None:
+def create_folium_map(grouped_data, _world, selected_categories=None):
+    if grouped_data is None or _world is None:
         return folium.Map(location=[20, 0], zoom_start=2)
 
     try:
-        grouped_data = group_data_by_title_location_and_date(filtered_data)
-        if grouped_data is None or grouped_data.empty:
-            return folium.Map(location=[20, 0], zoom_start=2)
+        if grouped_data is None:
+            grouped_data = group_data_by_title_location_and_date(grouped_data)
+            if grouped_data is None or grouped_data.empty:
+                return folium.Map(location=[20, 0], zoom_start=2)
     except Exception:
         return folium.Map(location=[20, 0], zoom_start=2)
 
@@ -726,7 +751,8 @@ def main_display(user_type, user_email):
     # Logout Handling
     st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
     # Perform conditional rendering based on the updated state
-    data = load_data()
+    files_signature = get_files_signature(PATH)
+    data = load_data(files_signature, PATH)
     if data is not None:
         world = load_world()
 
@@ -1025,6 +1051,7 @@ def main_display(user_type, user_email):
             )
     else:
         custom_warning("Data Unavailable")
+    
 
 if "logged_in" in st.session_state and st.session_state.logged_in:
     st.session_state.user_email = cookies.get("user_email")

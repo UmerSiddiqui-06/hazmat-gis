@@ -531,11 +531,14 @@ class sqlpy:
 
     def update_password(self, email, password):
         def update_func(cursor, email, password):
+            # ✅ hash the new password
+            hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
             cursor.execute(
-                "UPDATE users SET password = %s WHERE email = %s", (password, email)
+                "UPDATE users SET password = %s WHERE email = %s", (hashed, email)
             )
-            st.cache_data.clear()  # Clear cache after update
+            st.cache_data.clear()
         self._execute_with_connection(update_func, email, password)
+
 
     def delete_user(self, email):
         def delete_func(cursor, email):

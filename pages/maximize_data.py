@@ -13,7 +13,8 @@ from io import BytesIO
 import streamlit as st
 from components.custom_warnings import custom_error
 from pages.db_path import db_path
-
+st.set_page_config(
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="collapsed",layout="wide")
 @st.cache_resource
 def get_database_connection():
     return sqlpy.sqlpy()
@@ -29,8 +30,6 @@ if not conn or not conn.cursor:
     st.stop()
 
 # Set sidebar state to collapsed
-st.set_page_config(
-    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="collapsed",layout="wide")
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():

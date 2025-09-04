@@ -1,160 +1,137 @@
 import streamlit as st
 from db import sqlpy
-import time
 from components.custom_warnings import custom_error, custom_warning
 
 st.set_page_config(
     page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto")
 
-from streamlit_cookies_manager import EncryptedCookieManager
-cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
-if not cookies.ready():
-    st.stop()
-
+# Cache database connection
 @st.cache_resource
 def get_database_connection():
     """Single cached database connection for the entire app"""
     return sqlpy.sqlpy()
 
-# Get the single cached connection
-conn = get_database_connection()
-
-# Check if connection worked
-if not conn or not conn.cursor:
-    st.error("🚫 Database is temporarily unavailable due to connection limits.")
-    st.info("💡 This usually resolves within 1-2 minutes. Please try refreshing the page.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔄 Retry Connection"):
-            st.cache_resource.clear()  # Clear only resource cache
-            st.rerun()
-    with col2:
-        if st.button("🏠 Go to Home"):
-            st.switch_page("main.py")  # Or your main page
-    st.stop()
-def show_toast(message, duration=2):
-    toast_html = f"""
+# Cache toast CSS
+@st.cache_data
+def get_toast_css():
+    return """
     <style>
-        .toast {{
+        .toast {
             position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             padding: 15px 25px;
-            background-color: #f8d7da; /* Soft red for warning */
-            color: #842029; /* Dark red for text */
-            border: 1px solid #f5c2c7; /* Subtle border to complement background */
+            background-color: #f8d7da;
+            color: #842029;
+            border: 1px solid #f5c2c7;
             border-radius: 8px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern font */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 14px;
             font-weight: 500;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
             z-index: 1000;
             opacity: 0;
-            animation: fadein {duration}s forwards;
-        }}
-
-        @keyframes fadein {{
-            0% {{
-                opacity: 0;
-                transform: translate(-50%, 20px); /* Slide up effect */
-            }}
-            100% {{
-                opacity: 1;
-                transform: translate(-50%, 0);
-            }}
-        }}
+            animation: fadein 2s forwards;
+        }
+        @keyframes fadein {
+            0% { opacity: 0; transform: translate(-50%, 20px); }
+            100% { opacity: 1; transform: translate(-50%, 0); }
+        }
     </style>
-    <div class="toast">
-        ⚠️ {message}
-    </div>
     """
-    st.markdown(toast_html, unsafe_allow_html=True)
+
+def show_toast(message, duration=2):
+    st.markdown(get_toast_css(), unsafe_allow_html=True)
+    st.markdown(f'<div class="toast">⚠️ {message}</div>', unsafe_allow_html=True)
+
+# Initialize cookies outside cache
+from streamlit_cookies_manager import EncryptedCookieManager
+cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
+if not cookies.ready():
+    st.stop()
+
+# Get database connection
+conn = get_database_connection()
+if not conn or not conn.cursor:
+    st.error("🚫 Database is temporarily unavailable due to connection limits.")
+    st.info("💡 This usually resolves within 1-2 minutes. Please try refreshing the page.")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Retry Connection", key="retry_connection"):
+            st.cache_resource.clear()
+            st.experimental_rerun()
+    with col2:
+        if st.button("🏠 Go to Home", key="go_home"):
+            st.switch_page("main.py")
+    st.stop()
 
 def login_page():
     # Logo and title
-    c1, c2, c3 = st.columns(3)
-    with c2:
-        st.image("assets/logo.png", width=300)  # Add logo
-    c1, c2, c3 = st.columns((3.8, 7, 2))
-    with c2:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("assets/logo.png", width=300)
         st.header("HazMat GIS - Login")
-    with st.container(border=True):   
-        # if "temp_password" in st.session_state:
-        #      st.warning(f"Your temporary password is: {st.session_state.temp_password}")
-        # Clear the temporary password from session state after displaying it
-    
-        # Login form
-        email = st.text_input("Email").lower()
-        password = st.text_input("Password", type="password")
 
-        # Forget Password and Register buttons
-        col1, col2, col3, col4, col5 = st.columns((2, 2, 2, 2, 2.3))
+    # Login form with batch submission
+    with st.form(key="login_form", border=True):
+        email = st.text_input("Email", key="email_input").lower()
+        password = st.text_input("Password", type="password", key="password_input")
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 2.3])
         with col1:
-            login_button = st.button("Login")
-
+            login_button = st.form_submit_button("Login")
+        with col5:
+            forget_button = st.form_submit_button("Forget Password")
+        
+        
         if login_button:
             if not email:
                 custom_warning("Please enter email")
             elif not password:
                 custom_warning("Please enter password")
-                custom_warning("Please enter password")
             else:
-
-                is_user,is_admin = conn.check_login(email, password)
-                print("is_user: ", is_user)
-                print("is_admin: ", is_admin)
-                if is_user == "Accepted" and is_admin:
+                is_user, is_admin = conn.check_login(email, password)
+                print("is_user:", is_user)
+                print("is_admin:", is_admin)
+                if is_user == "Accepted":
+                    # Set session state and cookies
                     st.session_state.logged_in = True
+                    st.session_state.user_email = email
+                    st.session_state.user_type = "admin" if is_admin else "user"
+                    st.session_state.page = "main_display"
+                    st.session_state.sidebar_hidden = False
                     cookies["logged_in"] = "True"
-                    cookies["user_type"] = "admin"
+                    cookies["user_type"] = st.session_state.user_type
                     cookies["page"] = "main_display"
                     cookies["user_email"] = email
-                    st.session_state.page = "main_display"
-                    st.session_state.user_email = email
-                    st.session_state.user_type = "admin"
-                    st.session_state.sidebar_hidden = False
                     cookies.save()
-                    if conn.is_temporary_password(email):
-                        show_toast("This is a custom toast notification!")
-                    time.sleep(2)
-                    st.switch_page("pages/main_display.py")
-                elif is_user == "Accepted" and not is_admin:
-                    conn.add_new_login(email)
-                    st.session_state.user_email = email
-                    st.session_state.logged_in = True
-                    st.session_state.user_type = "user"
-                    st.session_state.user_email = email
-                    st.session_state.page = "main_display"
-                    st.session_state.sidebar_hidden = False
 
+                    # Show toast for temporary password
                     if conn.is_temporary_password(email):
-                        show_toast(
-                            "Your password is temporary. Please change it immediately!"
-                        )
-                    time.sleep(3)
+                        show_toast("Your password is temporary. Please change it immediately!" if not is_admin else "This is a custom toast notification!")
+                    
+                    if not is_admin:
+                        conn.add_new_login(email)
                     st.switch_page("pages/main_display.py")
                 elif is_user == "Rejected":
                     st.session_state.page = "Rejected"
                     st.switch_page("pages/rejected_page.py")
-
                 elif is_user == "Pending":
                     st.session_state.page = "Pending"
                     st.switch_page("pages/pending_page.py")
-
                 else:
                     custom_error("Wrong Password, Try Again")
 
-        with col5:
-            if st.button("Forget Password"):
-                st.session_state.page = "Forget_Password"
-                st.switch_page("pages/forget_password.py")
+        if forget_button:
+            st.session_state.page = "Forget_Password"
+            st.switch_page("pages/forget_password.py")
 
-        col1, col2 = st.columns((2.5, 7.5))
-        col1.write("Don't have an account?")
-        if col2.button("Register"):
-            st.session_state.page = "Register"
-            st.switch_page("pages/register_page.py")
+    # Register link
+    col1, col2 = st.columns([2.5, 7.5])
+    col1.write("Don't have an account?")
+    if col2.button("Register", key="register_button"):
+        st.session_state.page = "Register"
+        st.switch_page("pages/register_page.py")
 
-login_page()
+if __name__ == "__main__":
+    login_page()
