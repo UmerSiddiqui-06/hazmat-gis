@@ -2,8 +2,6 @@ import streamlit as st
 from db import sqlpy
 from streamlit_cookies_manager import EncryptedCookieManager
 import warnings
-import time
-start_time = time.time()
 # Cache CSS to avoid re-rendering
 @st.cache_data
 def get_css():
@@ -105,9 +103,7 @@ def navigate():
     else:
         target_page = "Login" if not st.session_state.logged_in else "default"
         
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print(f"✅ main fully loaded in {elapsed_time:.2f} seconds")
+
     # Navigate to the target page
     st.switch_page(PAGE_ROUTES[target_page])
 
