@@ -1,28 +1,33 @@
 import streamlit as st
-from custom_warnings import custom_warning
-import utitlity
+from components.custom_warnings import custom_warning
+from db import sqlpy
+st.set_page_config(
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto")
 
+# Cache database connection
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
+# Get database connection
 conn = get_database_connection()
-
-# Check if connection worked
 if not conn or not conn.cursor:
     st.error("🚫 Database is temporarily unavailable.")
-    if st.button("🔄 Retry"):
+    if st.button("🔄 Retry", key="retry_connection"):
         st.cache_resource.clear()
-        st.rerun()
+        st.experimental_rerun()
     st.stop()
-st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto")
+
 def pending_page():
-    columns = st.columns((2, 6, 2))
-    with columns[1]:
+    # Simplified layout
+    col1, col2, col3 = st.columns([2, 6, 2])
+    with col2:
         with st.container(border=True):
             st.subheader("Please Wait ⏳")
             custom_warning("Your request has not been accepted yet.")
-            if st.button("Back to Login Page"):
+            if st.button("Back to Login Page", key="back_to_login"):
+                st.session_state.page = "Login"
                 st.switch_page("pages/login_page.py")
-pending_page()
+
+if __name__ == "__main__":
+    pending_page()

@@ -6,17 +6,18 @@ import ast
 from streamlit_cookies_manager import EncryptedCookieManager
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from st_aggrid.shared import JsCode
-import utitlity
+from db import sqlpy
 from openai import OpenAI
 from docx import Document
 from io import BytesIO
 import streamlit as st
-from custom_warnings import custom_error
+from components.custom_warnings import custom_error
 from pages.db_path import db_path
-
+st.set_page_config(
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="collapsed",layout="wide")
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -29,8 +30,6 @@ if not conn or not conn.cursor:
     st.stop()
 
 # Set sidebar state to collapsed
-st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="collapsed",layout="wide")
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
@@ -77,7 +76,7 @@ if cookies.get("logged_in") == "True":
     st.session_state.logged_in = True
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.switch_page("pages/login.py")
-conn = utitlity.sqlpy()
+conn = sqlpy.sqlpy()
 def go_back():
     st.session_state.page = "main_display"
     cookies["page"] = "main_display"
@@ -94,7 +93,7 @@ def load_country_list(file_path):
 
 @st.cache_data
 def standardize_country_column(column):
-    country_list = load_country_list("worldcountries.txt")
+    country_list = load_country_list("assets/worldcountries.txt")
     country_variations = {
         "UAE": "United Arab Emirates",
         "United Arab Emirates": "United Arab Emirates",
@@ -198,7 +197,7 @@ def render_aggrid_data(df_display, user_type, user_email):
     gb.configure_column("City")
     gb.configure_column("Date")
     gb.configure_column("Impact")
-    gb.configure_column("Casuality")
+    gb.configure_column("Csuality")
     gb.configure_column("Injuries")
     gb.configure_column("Full Link")
     gb.configure_column("Severity")

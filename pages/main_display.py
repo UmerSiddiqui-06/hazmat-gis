@@ -8,18 +8,20 @@ import plotly.express as px
 from rapidfuzz import process
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
 from st_aggrid.shared import JsCode
-import utitlity
+from db import sqlpy
 from openai import OpenAI
 import os
 from docx import Document
 from io import BytesIO
 import ast
-from custom_warnings import custom_error, custom_warning
+from components.custom_warnings import custom_error, custom_warning
 from pages.db_path import db_path
+import requests 
+
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -37,13 +39,12 @@ ORIGINAL_FILES_PATH = os.path.join(PATH, "original_files")
 # Ensure the directory exists
 os.makedirs(ORIGINAL_FILES_PATH, exist_ok=True)
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="auto",layout="wide"
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="auto",layout="wide"
 )
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
     st.stop()
-conn = utitlity.sqlpy()
 if not conn:
     st.stop()
 if cookies.get("logged_in") == "True":
@@ -64,9 +65,11 @@ def load_country_list(file_path):
 def get_download_status():
     return conn.get_download_status()
 
+
+
 @st.cache_data
 def standardize_country_column(column):
-    country_list = load_country_list("worldcountries.txt")
+    country_list = load_country_list("assets/worldcountries.txt")
     country_variations = {
         "UAE": "United Arab Emirates",
         "United Arab Emirates": "United Arab Emirates",
@@ -81,21 +84,34 @@ def standardize_country_column(column):
         "Republic of Korea": "South Korea",
     }
 
-    def standardize_name(name):
-        # Check for known variations
-        if name in country_variations:
-            return country_variations[name]
-        # Fuzzy match if not in variations
-        match = process.extractOne(name, country_list)
-        return match[0] if match[1] > 80 else "Unknown"
+    # cache results locally to avoid recomputation
+    cache = {}
 
-    # Apply the standardization function
-    return column.apply(standardize_name)
+    def standardize_name(name):
+        if name in cache:
+            return cache[name]
+        # check for known variations
+        if name in country_variations:
+            result = country_variations[name]
+        else:
+            match = process.extractOne(name, country_list)
+            result = match[0] if match and match[1] > 80 else "Unknown"
+        cache[name] = result
+        return result
+
+    # only compute unique names once
+    unique_names = column.unique()
+    standardized_map = {name: standardize_name(name) for name in unique_names}
+    return column.map(standardized_map)
 
 @st.cache_data
 def load_world():
-    url = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
-    return gpd.read_file(url)
+    local_path = os.path.join("assets", "world.geojson")
+    if not os.path.exists(local_path):
+        url = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
+        with open(local_path, "wb") as f:
+            f.write(requests.get(url).content)
+    return gpd.read_file(local_path)
 
 @st.cache_data
 def filter_data(
@@ -194,23 +210,29 @@ def apply_filters_with_regex(data, filters):
         ]
 
     return data
-def load_data():
+
+def get_files_signature(folder):
+    """Create a signature of (filename, last modified time, size) for all Excel files."""
+    sig = []
+    for file_name in os.listdir(folder):
+        if file_name.endswith((".xlsx", ".xls")):
+            path = os.path.join(folder, file_name)
+            sig.append((file_name, os.path.getmtime(path), os.path.getsize(path)))
+    return tuple(sorted(sig))  # hashable, used as cache key
+
+
+@st.cache_data
+def load_data(files_signature, folder):
     try:
         dataframes = []
+        for file_name, _, _ in files_signature:  # unpack 3 values
+            file_path = os.path.join(folder, file_name)
+            df = pd.read_excel(file_path)
+            dataframes.append(df)
 
-        # Iterate over all files in the folder
-        for file_name in os.listdir(f"{PATH}"):
-            # Build the full file path
-            file_path = os.path.join(f"{PATH}", file_name)
-
-            # Check if the file is an Excel file
-            if file_name.endswith((".xlsx", ".xls")):
-                # Read the Excel file into a DataFrame and append to the list
-                df = pd.read_excel(file_path)
-                dataframes.append(df)
-        if len(dataframes) == 0:
+        if not dataframes:
             return None
-        # Concatenate all DataFrames into a single DataFrame
+
         data = pd.concat(dataframes, ignore_index=True)
         data["Date"] = pd.to_datetime(data["Date"], errors="coerce").dt.normalize()
         data["Country"] = standardize_country_column(data["Country"])
@@ -218,11 +240,13 @@ def load_data():
             lambda x: ast.literal_eval(x) if isinstance(x, str) else None
         )
         data = data.drop_duplicates()
+        return data
+
     except Exception as e:
         custom_error(f"Error Occured while loading Data: {e}")
         st.stop()
-    return data
-@st.cache_resource
+
+@st.cache_data
 def group_data_by_title_location_and_date(filtered_data):
     # First, explode the Category column to handle multiple categories per row
     filtered_data = filtered_data.copy()
@@ -235,7 +259,7 @@ def group_data_by_title_location_and_date(filtered_data):
     ).agg({
         'Impact': lambda x: ', '.join(sorted(set(x.astype(str).str.split(', ').explode().unique()))),
         'Severity': 'first',
-        'Casuality': 'first',
+        'Csuality': 'first',
         'Injuries': 'first',
         'Full Link': 'first',
     }).reset_index()
@@ -244,14 +268,15 @@ def group_data_by_title_location_and_date(filtered_data):
 
 #country base+spiral fixed.
 
-def create_folium_map(filtered_data, _world, selected_categories=None):
-    if filtered_data is None or _world is None:
+def create_folium_map(grouped_data, _world, selected_categories=None):
+    if grouped_data is None or _world is None:
         return folium.Map(location=[20, 0], zoom_start=2)
 
     try:
-        grouped_data = group_data_by_title_location_and_date(filtered_data)
-        if grouped_data is None or grouped_data.empty:
-            return folium.Map(location=[20, 0], zoom_start=2)
+        if grouped_data is None:
+            grouped_data = group_data_by_title_location_and_date(grouped_data)
+            if grouped_data is None or grouped_data.empty:
+                return folium.Map(location=[20, 0], zoom_start=2)
     except Exception:
         return folium.Map(location=[20, 0], zoom_start=2)
 
@@ -488,7 +513,7 @@ def render_aggrid_data(df_display, user_type, user_email):
     gb.configure_column("City", minWidth=200)
     gb.configure_column("Date", minWidth=100)
     gb.configure_column("Impact", minWidth=150)
-    gb.configure_column("Casuality", minWidth=50)
+    gb.configure_column("Csuality", minWidth=50)
     gb.configure_column("Injuries", minWidth=50)
     gb.configure_column("Full Link", minWidth=100)
     gb.configure_column("Severity", minWidth=100)
@@ -645,8 +670,8 @@ def create_popup_content(row):
                 <td style="padding: 8px; border: 1px solid #ddd;">{row['City']}, {row['Country']}</td>
             </tr>
             <tr>
-                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Casuality:</strong></td>
-                <td style="padding: 8px; border: 1px solid #ddd;">{int(row['Casuality']) if pd.notna(row['Casuality']) else 0}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Csuality:</strong></td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{int(row['Csuality']) if pd.notna(row['Csuality']) else 0}</td>
             </tr>
             <tr style="background-color: #f2f2f2;">
                 <td style="padding: 8px; border: 1px solid #ddd;"><strong>Injuries:</strong></td>
@@ -726,7 +751,8 @@ def main_display(user_type, user_email):
     # Logout Handling
     st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
     # Perform conditional rendering based on the updated state
-    data = load_data()
+    files_signature = get_files_signature(PATH)
+    data = load_data(files_signature, PATH)
     if data is not None:
         world = load_world()
 
@@ -944,7 +970,7 @@ def main_display(user_type, user_email):
                     "Country",
                     "City",
                     "Date",
-                    "Casuality",
+                    "Csuality",
                     "Injuries",
                     "Impact",
                     "Severity",
@@ -958,7 +984,7 @@ def main_display(user_type, user_email):
                     "Country",
                     "City",
                     "Date",
-                    "Casuality",
+                    "Csuality",
                     "Injuries",
                     "Impact",
                     "Severity",
@@ -1025,6 +1051,7 @@ def main_display(user_type, user_email):
             )
     else:
         custom_warning("Data Unavailable")
+    
 
 if "logged_in" in st.session_state and st.session_state.logged_in:
     st.session_state.user_email = cookies.get("user_email")

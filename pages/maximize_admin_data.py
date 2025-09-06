@@ -5,11 +5,11 @@ import time
 import pandas as pd
 import os
 from pages.db_path import db_path
-import utitlity
+from db import sqlpy
 
 @st.cache_resource
 def get_database_connection():
-    return utitlity.sqlpy()
+    return sqlpy.sqlpy()
 
 conn = get_database_connection()
 
@@ -21,7 +21,7 @@ if not conn or not conn.cursor:
         st.rerun()
     st.stop()
 st.set_page_config(
-    page_title="HazMat GIS", page_icon="logo1.png", initial_sidebar_state="collapsed",layout="wide")
+    page_title="HazMat GIS", page_icon="assets/logo.png", initial_sidebar_state="collapsed",layout="wide")
 from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="leafapp_", password="leaf_left_000")
 if not cookies.ready():
@@ -79,7 +79,7 @@ def render_aggrid(df_display,filename="temp"):
     gb.configure_column("City")
     gb.configure_column("Date")
     gb.configure_column("Impact")
-    gb.configure_column("Casuality")
+    gb.configure_column("Csuality")
     gb.configure_column("Injuries")
     gb.configure_column("Full Link")
     gb.configure_column("Severity")
@@ -152,20 +152,18 @@ def render_aggrid(df_display,filename="temp"):
                 st.rerun()
 
     return grid_response.get("selected_rows", [])
-@st.cache_data
-def load_excel_files():
-    excel_files = {}
-    for file_name in os.listdir(f"{PATH}"):
-        if file_name.endswith((".xlsx", ".xls")):
-            file_path = os.path.join(f"{PATH}", file_name)
-            excel_files[file_name] = pd.read_excel(file_path)
-    return excel_files
+def load_excel_file(filename: str):
+    file_path = os.path.join(PATH, filename)
+    return pd.read_excel(file_path)
+
 st.session_state.user_type = cookies.get("user_type")
-if "user_type" in st.session_state and st.session_state.user_type=="admin":
+if "user_type" in st.session_state and st.session_state.user_type == "admin":
     st.session_state.filename = cookies.get("filename")
-    excel_files = load_excel_files()
-    st.session_state.selected_file = excel_files[st.session_state.filename]
-    
-    render_aggrid(st.session_state.selected_file,st.session_state.filename)
+    if st.session_state.filename:
+        df = load_excel_file(st.session_state.filename)
+        st.session_state.selected_file = df
+        render_aggrid(df, st.session_state.filename)
+    else:
+        st.warning("⚠ No file selected. Please go back and choose a file.")
 else:
     st.switch_page("pages/login.py")
