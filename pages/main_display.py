@@ -50,9 +50,6 @@ if not conn:
 if cookies.get("logged_in") == "True":
     st.session_state.logged_in = True
 PATH = db_path()
-# def move_to_change_password():
-#     st.session_state.page = "change_password"
-#     # st.rerun()
 
     # st.rerun()
 def load_country_list(file_path):
