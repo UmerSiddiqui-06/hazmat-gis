@@ -50,9 +50,6 @@ if not conn:
 if cookies.get("logged_in") == "True":
     st.session_state.logged_in = True
 PATH = db_path()
-def move_to_change_password():
-    st.session_state.page = "change_password"
-    # st.rerun()
 
     # st.rerun()
 def load_country_list(file_path):
@@ -151,30 +148,33 @@ def filter_data(
     return filtered_data
 #################################
 import re
-
-def merge_original_files():
+@st.cache_data
+def merge_original_files(files_signature, folder):
     """
-    Merge all original files into a single DataFrame.
+    Merge all original files into a single DataFrame with caching.
+    Uses the provided files_signature to track changes.
     """
+    print("merging")
     try:
-        # List all original files
-        original_files = [f for f in os.listdir(ORIGINAL_FILES_PATH) if f.endswith((".xlsx", ".xls"))]
-
-        if not original_files:
+        if not files_signature:
             return None
 
-        # Merge all original files into a single DataFrame
         dataframes = []
-        for file_name in original_files:
-            file_path = os.path.join(ORIGINAL_FILES_PATH, file_name)
+        for file_name, _, _ in files_signature:  # unpack (name, mtime, size)
+            file_path = os.path.join(folder, file_name)
             df = pd.read_excel(file_path)
             dataframes.append(df)
 
+        if not dataframes:
+            return None
+
         merged_data = pd.concat(dataframes, ignore_index=True)
         return merged_data
+
     except Exception as e:
         custom_error(f"Error merging original files: {e}")
         return None
+
 
 def apply_filters_with_regex(data, filters):
     """
@@ -223,6 +223,7 @@ def get_files_signature(folder):
 
 @st.cache_data
 def load_data(files_signature, folder):
+    print("loading")
     try:
         dataframes = []
         for file_name, _, _ in files_signature:  # unpack 3 values
@@ -730,12 +731,16 @@ def main_display(user_type, user_email):
         st.sidebar.button("Admin Panel", use_container_width=True,on_click=move_to_admin)
             
     def move_to_change_password():
-        st.session_state.page = "change_password"
-    if st.session_state.page == "change_password":
+        # Set a one-time flag
+        st.session_state["__goto_change_password__"] = True
+
+    # Show button
+    st.sidebar.button("Change Password", use_container_width=True, on_click=move_to_change_password)
+
+    # Redirect only once, then clear the flag
+    if st.session_state.pop("__goto_change_password__", False):
         st.switch_page("pages/change_password.py")
-    # Redirect to Change Password Page
-    st.sidebar.button("Change Password", use_container_width=True,on_click=move_to_change_password)
-        
+
 
     def logout(user_type):
         st.session_state.page = "Login"
@@ -1012,7 +1017,8 @@ def main_display(user_type, user_email):
             download_status = conn.get_user_download_status(user_email)  # Fetch from the database
             with data_tab_cols[0]:
                 if download_status == 1:  # Show only if enabled in database
-                    merged_data = merge_original_files()
+                    files_signatures=get_files_signature(ORIGINAL_FILES_PATH)
+                    merged_data = merge_original_files(files_signatures,ORIGINAL_FILES_PATH)
                     if merged_data is not None:
                        filters = [type_filter, category_filter, country_filter, impact_filter, severity_filter, search_term]
                        filtered_original_data = apply_filters_with_regex(merged_data, filters)
