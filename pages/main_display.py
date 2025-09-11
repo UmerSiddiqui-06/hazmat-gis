@@ -1022,7 +1022,16 @@ def main_display(user_type, user_email):
                     if merged_data is not None:
                        filters = [type_filter, category_filter, country_filter, impact_filter, severity_filter, search_term]
                        filtered_original_data = apply_filters_with_regex(merged_data, filters)
-            
+                       if "Date" in filtered_original_data.columns:
+                            # convert to datetime and normalize (drop time part)
+                            filtered_original_data["Date"] = pd.to_datetime(filtered_original_data["Date"], errors="coerce").dt.normalize()
+
+                            # start_date and end_date are already pd.Timestamp in your code
+                            # keep rows between start_date and end_date (inclusive)
+                            filtered_original_data = filtered_original_data[
+                                (filtered_original_data["Date"] >= start_date) & (filtered_original_data["Date"] <= end_date)
+                            ]
+
                             # Generate CSV from the filtered data
                        csv = filtered_original_data.to_csv(index=False)
                        st.download_button(
