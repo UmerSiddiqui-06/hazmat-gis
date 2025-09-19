@@ -203,33 +203,60 @@ def render_aggrid(df_display, user_type, filename="temp"):
         theme="streamlit",
         fit_columns_on_grid_load=False,
     )
+    # --- ADMIN: handle edits and save ---
     if user_type == "admin" and filename != "temp":
-        if grid_response["data"] is not None:
+        if grid_response.get("data") is not None:
             updated_df = pd.DataFrame(grid_response["data"])
+            # positional DataFrames for comparison
             original_data = df_display.reset_index(drop=True)
             updated_data = updated_df.reset_index(drop=True)
-            if not updated_data.equals(original_data):
+
+            # Align columns: only compare shared columns, keep original order
+            common_cols = [c for c in original_data.columns if c in updated_data.columns]
+            if len(common_cols) == 0:
+                # nothing to compare
+                return grid_response.get("selected_rows", [])
+
+            # Prepare normalized copies for robust equality check:
+            def normalize_for_compare(df, cols):
+                d = df[cols].copy()
+                # fill NaNs, convert to str and strip whitespaces to avoid superficial differences
+                d = d.fillna("").astype(str).apply(lambda col: col.str.strip())
+                return d
+
+            original_cmp = normalize_for_compare(original_data, common_cols)
+            updated_cmp = normalize_for_compare(updated_data, common_cols)
+
+            # Only show Save Changes (and run saving code) if something truly changed
+            if not updated_cmp.equals(original_cmp):
                 if st.button("Save Changes"):
+                    # map positional index -> original full_data label
+                    pos_to_label = {pos: label for pos, label in enumerate(full_data.index)}
 
-                    # Update only the modified rows and cells
-                    for index, row in updated_data.iterrows():
-                        if not row.equals(
-                            original_data.loc[index]
-                        ):  # Check if the row has changed
-                            for col in updated_data.columns:
-                                if (
-                                    row[col] != original_data.loc[index, col]
-                                ):  # Check specific cell changes
-                                    # Find the corresponding index in the full_data DataFrame
-                                    full_index = full_data.index[
-                                        original_data.index[index]
-                                    ]
-                                    full_data.loc[full_index, col] = row[col]
+                    # Iterate through rows and columns, apply only actual cell changes
+                    for pos, row in updated_data.iterrows():
+                        # ignore rows beyond original range (defensive)
+                        if pos >= len(original_data):
+                            continue
+                        for col in common_cols:
+                            new_val = row[col]
+                            old_val = original_data.loc[pos, col]
+                            # normalize cell-level for comparison
+                            new_str = "" if pd.isna(new_val) else str(new_val).strip()
+                            old_str = "" if pd.isna(old_val) else str(old_val).strip()
+                            if new_str != old_str:
+                                label = pos_to_label[pos]
+                                full_data.at[label, col] = new_val
 
-                    # Save back the updated Excel file
-                    full_data.to_excel(f"data/{filename}", index=False)
-                    st.success("Data saved to Excel successfully!")
-                    df_display = updated_df
+                    # Save back into PATH (same folder you originally load from)
+                    save_path = os.path.join(PATH, filename)
+                    try:
+                        full_data.to_excel(save_path, index=False)
+                        st.success("Data saved to Excel successfully!")
+                    except Exception as e:
+                        custom_error(f"Failed to save file: {e}")
+
+                    # update local display and rerun so cache+UI refresh
                     time.sleep(1)
                     st.rerun()
 
@@ -1417,21 +1444,18 @@ def admin_panel():
             "Twitter Access"
         ]
     )
-
-    with col2:
-        display_col2()
-        
-    with col3:
-        display_col3()
-        
     with col1:
         display_col1()
-    with col6:
-        display_col6()
+    with col2:
+        display_col2() 
+    with col3:
+        display_col3()
     with col4:
-        display_col4()
+        display_col4()  
     with col5:
         display_col5()
+    with col6:
+        display_col6()
 if "user_type" in st.session_state and st.session_state.user_type=="admin":
     if "page" in st.session_state and st.session_state.page == "maximize_admin_data":
         cookies["filename"] = st.session_state.filename
