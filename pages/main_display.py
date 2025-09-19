@@ -267,6 +267,11 @@ def group_data_by_title_location_and_date(filtered_data):
     
     return grouped_data
 
+@st.cache_data(show_spinner=False)
+def get_cached_folium_map(grouped_data, _world, selected_categories):
+    # Return a folium.Map object
+    m= create_folium_map(grouped_data, _world, selected_categories)
+    return m._repr_html_()
 #country base+spiral fixed.
 
 def create_folium_map(grouped_data, _world, selected_categories=None):
@@ -831,9 +836,8 @@ def main_display(user_type, user_email):
             ).dt.date
             grouped_data = group_data_by_title_location_and_date(filtered_data)
 
-            m = create_folium_map(grouped_data, world, selected_categories)
-
-            folium_static(m, width=900, height=500)
+            m = get_cached_folium_map(grouped_data, world, selected_categories)
+            st.components.v1.html(m, height=500,width=900)
             df = filtered_data.copy()
 
             df["Category"] = df["Category"].str.split(",")
