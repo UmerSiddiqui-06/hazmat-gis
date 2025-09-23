@@ -837,18 +837,44 @@ def main_display(user_type, user_email):
             ).dt.date
             grouped_data = group_data_by_title_location_and_date(filtered_data)
 
+            import time
+            from streamlit.components.v1 import html
+
+            # --- Stage 1: Create the map object ---
             start_create = time.time()
             m = get_cached_folium_map(grouped_data, world, selected_categories)
             create_time = time.time() - start_create
-
             st.info(f"🛠 Map object created in {create_time:.2f} seconds")
 
-            # --- Stage 2: Map rendering ---
+            # --- Stage 2: Render the map in browser ---
             start_render = time.time()
-            st.components.v1.html(m, height=500, width=900)
-            render_time = time.time() - start_render
 
-            st.success(f"🎨 Map rendered on screen in {render_time:.2f} seconds")
+            # Wrap Folium HTML with JS to measure browser load time
+            wrapped_html = f"""
+            <div id="map-container">{m}</div>
+            <script>
+            const pyRenderStart = performance.now();  // when Python sent HTML
+
+            window.onload = () => {{
+                const pyRenderEnd = performance.now();
+                const seconds = ((pyRenderEnd - pyRenderStart) / 1000).toFixed(2);
+                console.log("🌍 Map fully loaded in " + seconds + " seconds (browser)");
+                
+                // Also show inside the Streamlit iframe
+                const div = document.createElement("div");
+                div.style.color = "green";
+                div.style.fontWeight = "bold";
+                div.innerText = "🌍 Map fully loaded in " + seconds + " seconds (browser)";
+                document.body.insertBefore(div, document.body.firstChild);
+            }};
+            </script>
+            """
+
+            html(wrapped_html, height=600, width=900)
+
+            render_time = time.time() - start_render
+            st.success(f"🎨 Map HTML sent to browser in {render_time:.2f} seconds")
+
             df = filtered_data.copy()
 
             df["Category"] = df["Category"].str.split(",")
