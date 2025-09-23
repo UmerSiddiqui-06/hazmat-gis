@@ -1473,40 +1473,22 @@ def admin_panel():
     )
 
     with col1:
-        start = time.time()
         display_col1()
-        end = time.time()
-        print(f"col1 took {end - start:.2f} seconds")
 
     with col2:
-        start = time.time()
         display_col2()
-        end = time.time()
-        print(f"col2 took {end - start:.2f} seconds")
 
     with col3:
-        start = time.time()
         display_col3()
-        end = time.time()
-        print(f"col3 took {end - start:.2f} seconds")
 
     with col4:
-        start = time.time()
         display_col4()
-        end = time.time()
-        print(f"col4 took {end - start:.2f} seconds")
 
     with col5:
-        start = time.time()
         display_col5()
-        end = time.time()
-        print(f"col5 took {end - start:.2f} seconds")
 
     with col6:
-        start = time.time()
         display_col6()
-        end = time.time()
-        print(f"col6 took {end - start:.2f} seconds")
 if "user_type" in st.session_state and st.session_state.user_type=="admin":
     if "page" in st.session_state and st.session_state.page == "maximize_admin_data":
         cookies["filename"] = st.session_state.filename
