@@ -141,6 +141,7 @@ def toggle_change_callback_status(user_id, status_key, widget_key):
     if st.session_state[widget_key] != st.session_state.toggle_states_status[status_key]:
         st.session_state.toggle_states_status[status_key] = st.session_state[widget_key]
         conn.change_status(user_id)
+        st.session_state["status_updated"] = True
 
 def toggle_change_user_admin(user_id, admin_key, widget_key):
     if st.session_state[widget_key] != st.session_state.is_admin_user[admin_key]:
@@ -506,6 +507,9 @@ def display_col1():
         if st.session_state.get("gpt_limit_updated", False):
                 st.session_state["gpt_limit_updated"] = False  # reset it
                 st.rerun()  # now rerun the script safely
+        if st.session_state.get("status_updated", False):
+            st.session_state["status_updated"] = False
+            st.rerun()
 
 @st.fragment
 def display_col6():
@@ -668,47 +672,52 @@ def display_col2():
         theme="streamlit",
     )
 
-    # selected_rows is a list of row-dicts
-    selected_rows = grid_response.get("selected_rows", []) or []
-    # Extract emails correctly
-    grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
+    # # selected_rows is a list of row-dicts
+    # selected_rows = grid_response.get("selected_rows", []) or []
+    # # Extract emails correctly
+    # grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
 
-    # Merge grid selections into the multiselect's session state
-    if grid_selected_emails:
-        # union keeps uniqueness
-        merged = list(set(st.session_state.selected_emails).union(set(grid_selected_emails)))
-        # Only assign if changed (avoids unnecessary writes)
-        if set(merged) != set(st.session_state.selected_emails):
-            st.session_state.selected_emails = merged
-            # No st.rerun() — fragment will re-run automatically
+    # # Merge grid selections into the multiselect's session state
+    # if grid_selected_emails:
+    #     # union keeps uniqueness
+    #     merged = list(set(st.session_state.selected_emails).union(set(grid_selected_emails)))
+    #     # Only assign if changed (avoids unnecessary writes)
+    #     if set(merged) != set(st.session_state.selected_emails):
+    #         st.session_state.selected_emails = merged
+    #         # No st.rerun() — fragment will re-run automatically
 
     # The rest: determine which users to show in login history
     selected_user = st.session_state.selected_emails or emails
 
     if selected_user is not None:
         st.subheader("Login History of Selected Users: ")
-        users_data = conn.get_login_info(selected_user)
-        users_data = pd.DataFrame(users_data, columns=["Email", "Time"])
-        users_data["Time"] = pd.to_datetime(users_data["Time"])
 
         selected_filter = st.selectbox(
             "Select Time Filter",
             ["All time", "Past Day", "Past Week", "Past Month", "Past Year", "Custom Range"],
         )
 
-        temp_data = users_data.copy()
-
+        start_date, end_date, users_data = None, None, None
         if selected_filter == "Custom Range":
+            users_data = conn.get_login_info(selected_user)
+            users_data = pd.DataFrame(users_data, columns=["Email", "Time"])
+            users_data["Time"] = pd.to_datetime(users_data["Time"])
+
             try:
-                start_date = st.date_input("Start Date", temp_data["Time"].min())
-                end_date = st.date_input("End Date", temp_data["Time"].max())
+                start_date = st.date_input("Start Date", users_data["Time"].min())
+                end_date = st.date_input("End Date", users_data["Time"].max())
             except:
-                start_date = st.date_input("Start Date", datetime.datetime.today().date())
-                end_date = st.date_input("End Date", datetime.datetime.today().date())
-        else:
-            start_date, end_date = None, None
+                today = datetime.datetime.today().date()
+                start_date = st.date_input("Start Date", today)
+                end_date = st.date_input("End Date", today)
 
         if st.button("View History"):
+            if users_data is None:
+                users_data = conn.get_login_info(selected_user)
+                users_data = pd.DataFrame(users_data, columns=["Email", "Time"])
+                users_data["Time"] = pd.to_datetime(users_data["Time"])
+            temp_data = users_data.copy()
+
             if not temp_data.empty:
                 current_time = datetime.datetime.now()
 
@@ -721,16 +730,25 @@ def display_col2():
                 elif selected_filter == "Past Year":
                     temp_data = temp_data[temp_data["Time"] >= pd.Timestamp(current_time - datetime.timedelta(days=365))]
                 elif selected_filter == "Custom Range" and start_date and end_date:
-                    temp_data = temp_data[(temp_data["Time"] >= pd.Timestamp(start_date)) & (temp_data["Time"] <= pd.Timestamp(end_date))]
+                    temp_data = temp_data[
+                        (temp_data["Time"] >= pd.Timestamp(start_date)) &
+                        (temp_data["Time"] <= pd.Timestamp(end_date))
+                    ]
 
                 gb = GridOptionsBuilder.from_dataframe(temp_data)
                 gb.configure_grid_options(domLayout="normal")
                 gb.configure_column("Email", tooltipField="Email")
                 gb.configure_column("Time", tooltipField="Time")
-                gb.configure_default_column(editable=True, resizable=True, flex=1)
+                gb.configure_default_column(editable=False, resizable=True, flex=1)
                 grid_options = gb.build()
 
-                AgGrid(temp_data, gridOptions=grid_options, fit_columns_on_grid_load=True, height=200, theme="streamlit")
+                AgGrid(
+                    temp_data,
+                    gridOptions=grid_options,
+                    fit_columns_on_grid_load=True,
+                    height=200,
+                    theme="streamlit",
+                )
             else:
                 custom_warning("Not Enough Data")
 
@@ -861,21 +879,7 @@ def display_col3():
     if len(selected_user) == 0:
         selected_user = emails
     st.subheader("Download History of Selected Users: ")
-    users_data = conn.get_user_download_history(selected_user)
-    users_data = pd.DataFrame(
-        users_data,
-        columns=[
-            "Email",
-            "Download Date",
-            "Type",
-            "Category",
-            "Country",
-            "Impact",
-            "Severity",
-            "Date",
-        ],
-    )
-    users_data["Download Date"] = pd.to_datetime(users_data["Download Date"])
+    
     selected_filter = st.selectbox(
         "Select Time Filter",
         [
@@ -889,26 +893,53 @@ def display_col3():
         key="down-user",
     )
 
-    temp_data = users_data.copy()
+    start_date, end_date = None, None
+    users_data = None  # placeholder
+
     if selected_filter == "Custom Range":
+        # Fetch only when custom range is selected
+        users_data = conn.get_user_download_history(selected_user)
+        users_data = pd.DataFrame(
+            users_data,
+            columns=[
+                "Email", "Download Date", "Type", "Category",
+                "Country", "Impact", "Severity", "Date"
+            ],
+        )
+        users_data["Download Date"] = pd.to_datetime(users_data["Download Date"])
+
+        # Set min/max for date picker based on actual data, fallback to today if empty
         try:
             start_date = st.date_input(
-                "Start Date", temp_data["Download Date"].min(), key="k1"
+                "Start Date", users_data["Download Date"].min(), key="k1"
             )
             end_date = st.date_input(
-                "End Date", temp_data["Download Date"].max(), key="k2"
+                "End Date", users_data["Download Date"].max(), key="k2"
             )
         except:
+            # fallback if users_data is empty
             start_date = st.date_input(
                 "Start Date", datetime.datetime.today().date(), key="k3"
             )
             end_date = st.date_input(
                 "End Date", datetime.datetime.today().date(), key="k4"
             )
-    else:
-        start_date, end_date = None, None
+
 
     if st.button("View History", key="down-find"):
+        # If not custom range, fetch filtered data as usual
+        if users_data is None:
+            users_data = conn.get_user_download_history(selected_user)
+            users_data = pd.DataFrame(
+                users_data,
+                columns=[
+                    "Email","Download Date","Type","Category",
+                    "Country","Impact","Severity","Date"
+                ],
+            )
+            users_data["Download Date"] = pd.to_datetime(users_data["Download Date"])
+
+        temp_data = users_data.copy()
         if not temp_data.empty:
             current_time = datetime.datetime.now()
 
@@ -1010,10 +1041,16 @@ def display_col4():
         allow_unsafe_jscode=True,
     )
 
-    # safe extraction of selected rows (list of dicts)
-    selected_rows = grid_response.get("selected_rows", []) or []
-    # selected_rows is a list; take first element if exists
-    row_data = selected_rows[0] if len(selected_rows) > 0 else None
+    selected_rows = grid_response.get("selected_rows", [])
+
+    # Normalize type
+    if selected_rows is None:
+        selected_rows = []
+    elif isinstance(selected_rows, pd.DataFrame):
+        selected_rows = selected_rows.to_dict("records")
+
+    row_data = selected_rows[0] if selected_rows else None
+
 
     # Modal (assuming the decorator is valid in your environment)
     @st.dialog("Response", width="large")
@@ -1038,13 +1075,13 @@ def display_col4():
         if st.button("Show Details"):
             show_full_screen_modal(row_data)
 
-    # Merge any additional grid-selected emails into session (if desired)
-    grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
-    if grid_selected_emails:
-        merged = list(set(st.session_state.selected_emails_gpt).union(grid_selected_emails))
-        if set(merged) != set(st.session_state.selected_emails_gpt):
-            st.session_state.selected_emails_gpt = merged
-            # no st.rerun(): fragment will rerun automatically
+    # # Merge any additional grid-selected emails into session (if desired)
+    # grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
+    # if grid_selected_emails:
+    #     merged = list(set(st.session_state.selected_emails_gpt).union(grid_selected_emails))
+    #     if set(merged) != set(st.session_state.selected_emails_gpt):
+    #         st.session_state.selected_emails_gpt = merged
+    #         # no st.rerun(): fragment will rerun automatically
 
     # ------- GPT Usage section -------
     usage = conn.get_gpt_usage() or []
@@ -1082,13 +1119,19 @@ def display_col4():
         theme="streamlit",
     )
 
-    selected_rows2 = grid_response2.get("selected_rows", []) or []
-    grid_selected_emails2 = [r.get("Email") for r in selected_rows2 if r.get("Email")]
+    # selected_rows2 = grid_response2.get("selected_rows", [])
 
-    if grid_selected_emails2:
-        merged2 = list(set(st.session_state.selected_emails_usage).union(grid_selected_emails2))
-        if set(merged2) != set(st.session_state.selected_emails_usage):
-            st.session_state.selected_emails_usage = merged2
+    # # Normalize type
+    # if selected_rows2 is None:
+    #     selected_rows2 = []
+    # elif isinstance(selected_rows2, pd.DataFrame):
+    #     selected_rows2 = selected_rows2.to_dict("records")
+    # grid_selected_emails2 = [r.get("Email") for r in selected_rows2 if r.get("Email")]
+
+    # if grid_selected_emails2:
+    #     merged2 = list(set(st.session_state.selected_emails_usage).union(grid_selected_emails2))
+    #     if set(merged2) != set(st.session_state.selected_emails_usage):
+    #         st.session_state.selected_emails_usage = merged2
 
 
 @st.fragment
@@ -1444,14 +1487,19 @@ def admin_panel():
             "Twitter Access"
         ]
     )
+
     with col1:
         display_col1()
+
     with col2:
-        display_col2() 
+        display_col2()
+
     with col3:
         display_col3()
+
     with col4:
-        display_col4()  
+        display_col4()
+
     with col5:
         display_col5()
     with col6:
