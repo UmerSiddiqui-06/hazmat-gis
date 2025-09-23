@@ -687,28 +687,33 @@ def display_col2():
 
     if selected_user is not None:
         st.subheader("Login History of Selected Users: ")
-        users_data = conn.get_login_info(selected_user)
-        users_data = pd.DataFrame(users_data, columns=["Email", "Time"])
-        users_data["Time"] = pd.to_datetime(users_data["Time"])
 
         selected_filter = st.selectbox(
             "Select Time Filter",
             ["All time", "Past Day", "Past Week", "Past Month", "Past Year", "Custom Range"],
         )
 
-        temp_data = users_data.copy()
-
+        start_date, end_date, users_data = None, None, None
         if selected_filter == "Custom Range":
+            users_data = conn.get_login_info(selected_user)
+            users_data = pd.DataFrame(users_data, columns=["Email", "Time"])
+            users_data["Time"] = pd.to_datetime(users_data["Time"])
+
             try:
-                start_date = st.date_input("Start Date", temp_data["Time"].min())
-                end_date = st.date_input("End Date", temp_data["Time"].max())
+                start_date = st.date_input("Start Date", users_data["Time"].min())
+                end_date = st.date_input("End Date", users_data["Time"].max())
             except:
-                start_date = st.date_input("Start Date", datetime.datetime.today().date())
-                end_date = st.date_input("End Date", datetime.datetime.today().date())
-        else:
-            start_date, end_date = None, None
+                today = datetime.datetime.today().date()
+                start_date = st.date_input("Start Date", today)
+                end_date = st.date_input("End Date", today)
 
         if st.button("View History"):
+            if users_data is None:
+                users_data = conn.get_login_info(selected_user)
+                users_data = pd.DataFrame(users_data, columns=["Email", "Time"])
+                users_data["Time"] = pd.to_datetime(users_data["Time"])
+            temp_data = users_data.copy()
+
             if not temp_data.empty:
                 current_time = datetime.datetime.now()
 
@@ -721,7 +726,10 @@ def display_col2():
                 elif selected_filter == "Past Year":
                     temp_data = temp_data[temp_data["Time"] >= pd.Timestamp(current_time - datetime.timedelta(days=365))]
                 elif selected_filter == "Custom Range" and start_date and end_date:
-                    temp_data = temp_data[(temp_data["Time"] >= pd.Timestamp(start_date)) & (temp_data["Time"] <= pd.Timestamp(end_date))]
+                    temp_data = temp_data[
+                        (temp_data["Time"] >= pd.Timestamp(start_date)) &
+                        (temp_data["Time"] <= pd.Timestamp(end_date))
+                    ]
 
                 gb = GridOptionsBuilder.from_dataframe(temp_data)
                 gb.configure_grid_options(domLayout="normal")
@@ -730,7 +738,13 @@ def display_col2():
                 gb.configure_default_column(editable=True, resizable=True, flex=1)
                 grid_options = gb.build()
 
-                AgGrid(temp_data, gridOptions=grid_options, fit_columns_on_grid_load=True, height=200, theme="streamlit")
+                AgGrid(
+                    temp_data,
+                    gridOptions=grid_options,
+                    fit_columns_on_grid_load=True,
+                    height=200,
+                    theme="streamlit",
+                )
             else:
                 custom_warning("Not Enough Data")
 
@@ -861,21 +875,7 @@ def display_col3():
     if len(selected_user) == 0:
         selected_user = emails
     st.subheader("Download History of Selected Users: ")
-    users_data = conn.get_user_download_history(selected_user)
-    users_data = pd.DataFrame(
-        users_data,
-        columns=[
-            "Email",
-            "Download Date",
-            "Type",
-            "Category",
-            "Country",
-            "Impact",
-            "Severity",
-            "Date",
-        ],
-    )
-    users_data["Download Date"] = pd.to_datetime(users_data["Download Date"])
+    
     selected_filter = st.selectbox(
         "Select Time Filter",
         [
@@ -889,26 +889,53 @@ def display_col3():
         key="down-user",
     )
 
-    temp_data = users_data.copy()
+    start_date, end_date = None, None
+    users_data = None  # placeholder
+
     if selected_filter == "Custom Range":
+        # Fetch only when custom range is selected
+        users_data = conn.get_user_download_history(selected_user)
+        users_data = pd.DataFrame(
+            users_data,
+            columns=[
+                "Email", "Download Date", "Type", "Category",
+                "Country", "Impact", "Severity", "Date"
+            ],
+        )
+        users_data["Download Date"] = pd.to_datetime(users_data["Download Date"])
+
+        # Set min/max for date picker based on actual data, fallback to today if empty
         try:
             start_date = st.date_input(
-                "Start Date", temp_data["Download Date"].min(), key="k1"
+                "Start Date", users_data["Download Date"].min(), key="k1"
             )
             end_date = st.date_input(
-                "End Date", temp_data["Download Date"].max(), key="k2"
+                "End Date", users_data["Download Date"].max(), key="k2"
             )
         except:
+            # fallback if users_data is empty
             start_date = st.date_input(
                 "Start Date", datetime.datetime.today().date(), key="k3"
             )
             end_date = st.date_input(
                 "End Date", datetime.datetime.today().date(), key="k4"
             )
-    else:
-        start_date, end_date = None, None
+
 
     if st.button("View History", key="down-find"):
+        # If not custom range, fetch filtered data as usual
+        if users_data is None:
+            users_data = conn.get_user_download_history(selected_user)
+            users_data = pd.DataFrame(
+                users_data,
+                columns=[
+                    "Email","Download Date","Type","Category",
+                    "Country","Impact","Severity","Date"
+                ],
+            )
+            users_data["Download Date"] = pd.to_datetime(users_data["Download Date"])
+
+        temp_data = users_data.copy()
         if not temp_data.empty:
             current_time = datetime.datetime.now()
 
@@ -1444,18 +1471,42 @@ def admin_panel():
             "Twitter Access"
         ]
     )
+
     with col1:
+        start = time.time()
         display_col1()
+        end = time.time()
+        print(f"col1 took {end - start:.2f} seconds")
+
     with col2:
-        display_col2() 
+        start = time.time()
+        display_col2()
+        end = time.time()
+        print(f"col2 took {end - start:.2f} seconds")
+
     with col3:
+        start = time.time()
         display_col3()
+        end = time.time()
+        print(f"col3 took {end - start:.2f} seconds")
+
     with col4:
-        display_col4()  
+        start = time.time()
+        display_col4()
+        end = time.time()
+        print(f"col4 took {end - start:.2f} seconds")
+
     with col5:
+        start = time.time()
         display_col5()
+        end = time.time()
+        print(f"col5 took {end - start:.2f} seconds")
+
     with col6:
+        start = time.time()
         display_col6()
+        end = time.time()
+        print(f"col6 took {end - start:.2f} seconds")
 if "user_type" in st.session_state and st.session_state.user_type=="admin":
     if "page" in st.session_state and st.session_state.page == "maximize_admin_data":
         cookies["filename"] = st.session_state.filename
