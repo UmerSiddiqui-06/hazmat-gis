@@ -17,7 +17,7 @@ import ast
 from components.custom_warnings import custom_error, custom_warning
 from pages.db_path import db_path
 import requests 
-
+import time
 
 @st.cache_resource
 def get_database_connection():
@@ -275,6 +275,7 @@ def get_cached_folium_map(grouped_data, _world, selected_categories):
 #country base+spiral fixed.
 
 def create_folium_map(grouped_data, _world, selected_categories=None):
+    st.write("Generating map, please wait...")
     if grouped_data is None or _world is None:
         return folium.Map(location=[20, 0], zoom_start=2)
 
@@ -836,8 +837,18 @@ def main_display(user_type, user_email):
             ).dt.date
             grouped_data = group_data_by_title_location_and_date(filtered_data)
 
+            start_create = time.time()
             m = get_cached_folium_map(grouped_data, world, selected_categories)
-            st.components.v1.html(m, height=500,width=900)
+            create_time = time.time() - start_create
+
+            st.info(f"🛠 Map object created in {create_time:.2f} seconds")
+
+            # --- Stage 2: Map rendering ---
+            start_render = time.time()
+            st.components.v1.html(m, height=500, width=900)
+            render_time = time.time() - start_render
+
+            st.success(f"🎨 Map rendered on screen in {render_time:.2f} seconds")
             df = filtered_data.copy()
 
             df["Category"] = df["Category"].str.split(",")
