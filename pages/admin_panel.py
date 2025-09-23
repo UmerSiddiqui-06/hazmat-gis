@@ -141,6 +141,7 @@ def toggle_change_callback_status(user_id, status_key, widget_key):
     if st.session_state[widget_key] != st.session_state.toggle_states_status[status_key]:
         st.session_state.toggle_states_status[status_key] = st.session_state[widget_key]
         conn.change_status(user_id)
+        st.session_state["status_updated"] = True
 
 def toggle_change_user_admin(user_id, admin_key, widget_key):
     if st.session_state[widget_key] != st.session_state.is_admin_user[admin_key]:
@@ -506,6 +507,9 @@ def display_col1():
         if st.session_state.get("gpt_limit_updated", False):
                 st.session_state["gpt_limit_updated"] = False  # reset it
                 st.rerun()  # now rerun the script safely
+        if st.session_state.get("status_updated", False):
+            st.session_state["status_updated"] = False
+            st.rerun()
 
 @st.fragment
 def display_col6():
@@ -668,19 +672,19 @@ def display_col2():
         theme="streamlit",
     )
 
-    # selected_rows is a list of row-dicts
-    selected_rows = grid_response.get("selected_rows", []) or []
-    # Extract emails correctly
-    grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
+    # # selected_rows is a list of row-dicts
+    # selected_rows = grid_response.get("selected_rows", []) or []
+    # # Extract emails correctly
+    # grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
 
-    # Merge grid selections into the multiselect's session state
-    if grid_selected_emails:
-        # union keeps uniqueness
-        merged = list(set(st.session_state.selected_emails).union(set(grid_selected_emails)))
-        # Only assign if changed (avoids unnecessary writes)
-        if set(merged) != set(st.session_state.selected_emails):
-            st.session_state.selected_emails = merged
-            # No st.rerun() — fragment will re-run automatically
+    # # Merge grid selections into the multiselect's session state
+    # if grid_selected_emails:
+    #     # union keeps uniqueness
+    #     merged = list(set(st.session_state.selected_emails).union(set(grid_selected_emails)))
+    #     # Only assign if changed (avoids unnecessary writes)
+    #     if set(merged) != set(st.session_state.selected_emails):
+    #         st.session_state.selected_emails = merged
+    #         # No st.rerun() — fragment will re-run automatically
 
     # The rest: determine which users to show in login history
     selected_user = st.session_state.selected_emails or emails
@@ -735,7 +739,7 @@ def display_col2():
                 gb.configure_grid_options(domLayout="normal")
                 gb.configure_column("Email", tooltipField="Email")
                 gb.configure_column("Time", tooltipField="Time")
-                gb.configure_default_column(editable=True, resizable=True, flex=1)
+                gb.configure_default_column(editable=False, resizable=True, flex=1)
                 grid_options = gb.build()
 
                 AgGrid(
@@ -1037,10 +1041,16 @@ def display_col4():
         allow_unsafe_jscode=True,
     )
 
-    # safe extraction of selected rows (list of dicts)
-    selected_rows = grid_response.get("selected_rows", []) or []
-    # selected_rows is a list; take first element if exists
-    row_data = selected_rows[0] if len(selected_rows) > 0 else None
+    selected_rows = grid_response.get("selected_rows", [])
+
+    # Normalize type
+    if selected_rows is None:
+        selected_rows = []
+    elif isinstance(selected_rows, pd.DataFrame):
+        selected_rows = selected_rows.to_dict("records")
+
+    row_data = selected_rows[0] if selected_rows else None
+
 
     # Modal (assuming the decorator is valid in your environment)
     @st.dialog("Response", width="large")
@@ -1065,13 +1075,13 @@ def display_col4():
         if st.button("Show Details"):
             show_full_screen_modal(row_data)
 
-    # Merge any additional grid-selected emails into session (if desired)
-    grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
-    if grid_selected_emails:
-        merged = list(set(st.session_state.selected_emails_gpt).union(grid_selected_emails))
-        if set(merged) != set(st.session_state.selected_emails_gpt):
-            st.session_state.selected_emails_gpt = merged
-            # no st.rerun(): fragment will rerun automatically
+    # # Merge any additional grid-selected emails into session (if desired)
+    # grid_selected_emails = [r.get("Email") for r in selected_rows if r.get("Email")]
+    # if grid_selected_emails:
+    #     merged = list(set(st.session_state.selected_emails_gpt).union(grid_selected_emails))
+    #     if set(merged) != set(st.session_state.selected_emails_gpt):
+    #         st.session_state.selected_emails_gpt = merged
+    #         # no st.rerun(): fragment will rerun automatically
 
     # ------- GPT Usage section -------
     usage = conn.get_gpt_usage() or []
@@ -1109,13 +1119,19 @@ def display_col4():
         theme="streamlit",
     )
 
-    selected_rows2 = grid_response2.get("selected_rows", []) or []
-    grid_selected_emails2 = [r.get("Email") for r in selected_rows2 if r.get("Email")]
+    # selected_rows2 = grid_response2.get("selected_rows", [])
 
-    if grid_selected_emails2:
-        merged2 = list(set(st.session_state.selected_emails_usage).union(grid_selected_emails2))
-        if set(merged2) != set(st.session_state.selected_emails_usage):
-            st.session_state.selected_emails_usage = merged2
+    # # Normalize type
+    # if selected_rows2 is None:
+    #     selected_rows2 = []
+    # elif isinstance(selected_rows2, pd.DataFrame):
+    #     selected_rows2 = selected_rows2.to_dict("records")
+    # grid_selected_emails2 = [r.get("Email") for r in selected_rows2 if r.get("Email")]
+
+    # if grid_selected_emails2:
+    #     merged2 = list(set(st.session_state.selected_emails_usage).union(grid_selected_emails2))
+    #     if set(merged2) != set(st.session_state.selected_emails_usage):
+    #         st.session_state.selected_emails_usage = merged2
 
 
 @st.fragment
@@ -1486,7 +1502,6 @@ def admin_panel():
 
     with col5:
         display_col5()
-
     with col6:
         display_col6()
 if "user_type" in st.session_state and st.session_state.user_type=="admin":
