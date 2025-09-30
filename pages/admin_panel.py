@@ -13,7 +13,13 @@ from rapidfuzz import process
 import time
 from pages.db_path import db_path
 from components.custom_warnings import custom_error,custom_warning
+import json
+import hashlib
+from openai import OpenAI
+import chromadb
+from dotenv import load_dotenv
 
+load_dotenv() 
 
 @st.cache_resource
 def get_database_connection():
@@ -50,6 +56,230 @@ if cookies.get("user_type") == "admin":
         st.session_state.user_type = "user"  # Safe default
 
 PATH = db_path()
+# Ensure these use your PATH variable (defined earlier via db_path())
+OUTPUT_DIR = os.path.join(PATH, "hazmat_chroma")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Index file to track per-file last_modified and embedded status
+INDEX_PATH = os.path.join(OUTPUT_DIR, "embeddings_index.json")
+
+# Initialize OpenAI client (read key from env for safety)
+OPENAI_API_KEY = os.getenv("gpt_api_key") or ""  # set this in your env or replace with string
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Initialize Chroma persistent client and collection
+chroma_client = chromadb.PersistentClient(path=OUTPUT_DIR)
+chromadb_collection = chroma_client.get_or_create_collection("hazmat_data")
+
+
+# ---------- Index helpers ----------
+def load_embeddings_index():
+    """Return dict mapping filename -> {last_modified: float, embedded: bool}"""
+    try:
+        if os.path.exists(INDEX_PATH):
+            with open(INDEX_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        # If file corrupt, backup it and return empty
+        backup = INDEX_PATH + f".bak.{int(time.time())}"
+        try:
+            os.replace(INDEX_PATH, backup)
+        except Exception:
+            pass
+    return {}
+
+def save_embeddings_index(index_dict):
+    with open(INDEX_PATH, "w", encoding="utf-8") as f:
+        json.dump(index_dict, f, indent=2)
+
+def update_index_entry(filename, last_modified, embedded=True):
+    idx = load_embeddings_index()
+    idx[filename] = {"last_modified": float(last_modified), "embedded": bool(embedded)}
+    save_embeddings_index(idx)
+
+def remove_index_entry(filename):
+    idx = load_embeddings_index()
+    if filename in idx:
+        idx.pop(filename)
+        save_embeddings_index(idx)
+
+def needs_embedding(filename, current_mtime):
+    """Return True if file is missing in index or mtime > recorded mtime"""
+    idx = load_embeddings_index()
+    if filename not in idx:
+        return True
+    try:
+        recorded = float(idx[filename].get("last_modified", 0))
+        return float(current_mtime) > recorded + 1e-6  # small epsilon
+    except Exception:
+        return True
+
+# Small helper to create row ids stable across re-runs
+def make_row_id(filename, row_idx):
+    # use basename and row index; keep deterministic
+    base = os.path.basename(filename)
+    return f"{base}_{row_idx}"
+
+# ------------------ Embedding / Delete / Sync helpers ------------------
+
+# Which columns to combine into a single searchable text
+TEXT_COLUMNS = ["Type", "Category", "Title", "City", "Country", "Impact"]
+MODEL_NAME = "text-embedding-3-small"
+BATCH_SIZE = 100  # number of texts to send per embeddings API call (adjustable)
+
+def combine_text(row):
+    parts = []
+    for col in TEXT_COLUMNS:
+        val = row.get(col, "")
+        if pd.isna(val):
+            continue
+        val = str(val).strip()
+        if val:
+            parts.append(val)
+    return " | ".join(parts) if parts else ""
+
+def clean_metadata_value(val):
+    if pd.isna(val) or val is None:
+        return ""
+    if isinstance(val, (int, float, bool)):
+        return val
+    return str(val)
+
+def _make_metadata_for_row(row, filename):
+    # Always include filename
+    metadata = {"filename": filename}
+
+    # Add every column from the row
+    for key, val in row.items():
+        metadata[key] = clean_metadata_value(val)
+
+    return metadata
+
+
+def embed_file(file_path, show_streamlit_spinner=True):
+    """
+    Read the Excel file at file_path, compute embeddings and insert into Chroma.
+    This function deletes existing embeddings for this filename first.
+    """
+    file_name = os.path.basename(file_path)
+    try:
+        if show_streamlit_spinner:
+            spinner = st.spinner(f"Embedding {file_name} ...")
+            spinner.__enter__()
+
+        # 1) delete old embeddings for this file (so we replace)
+        try:
+            chromadb_collection.delete(where={"filename": file_name})
+        except Exception:
+            # continue even if delete fails (collection API may vary)
+            pass
+
+        # 2) read file and prepare texts & metadata
+        df = pd.read_excel(file_path)
+        if df.empty:
+            if show_streamlit_spinner:
+                spinner.__exit__(None, None, None)
+            st.warning(f"No rows found in {file_name}, skipping embedding.")
+            update_index_entry(file_name, os.path.getmtime(file_path), embedded=False)
+            return False
+
+        texts = df.apply(combine_text, axis=1).tolist()
+        # create metadata and ids lists
+        metadatas = [_make_metadata_for_row(df.loc[i], file_name) for i in df.index]
+        ids = [make_row_id(file_name, i) for i in df.index]
+
+        # 3) create embeddings in batches (to reduce API calls)
+        all_embeddings = []
+        for i in range(0, len(texts), BATCH_SIZE):
+            batch_texts = texts[i : i + BATCH_SIZE]
+            # API call (batch)
+            resp = openai_client.embeddings.create(model=MODEL_NAME, input=batch_texts)
+            # resp.data is a list in same order
+            for item in resp.data:
+                all_embeddings.append(item.embedding)
+
+        # 4) insert into Chroma in batches (avoid very large single inserts)
+        for i in range(0, len(all_embeddings), BATCH_SIZE):
+            chunk_embeddings = all_embeddings[i : i + BATCH_SIZE]
+            chunk_docs = texts[i : i + BATCH_SIZE]
+            chunk_meta = metadatas[i : i + BATCH_SIZE]
+            chunk_ids = ids[i : i + BATCH_SIZE]
+
+            chromadb_collection.add(
+                embeddings=chunk_embeddings,
+                documents=chunk_docs,
+                metadatas=chunk_meta,
+                ids=chunk_ids,
+            )
+
+        # 5) update index entry
+        update_index_entry(file_name, os.path.getmtime(file_path), embedded=True)
+
+        if show_streamlit_spinner:
+            spinner.__exit__(None, None, None)
+            st.success(f"Embeddings created and stored for {file_name}")
+        return True
+
+    except Exception as e:
+        if show_streamlit_spinner:
+            try:
+                spinner.__exit__(None, None, None)
+            except Exception:
+                pass
+        st.error(f"Failed to embed {file_name}: {e}")
+        # do NOT mark as embedded in index on failure
+        return False
+
+def delete_embeddings_for_file(file_name):
+    """
+    Delete embeddings from Chroma for a file_name and remove from index.
+    file_name should be basename (e.g., 'myfile.xlsx')
+    """
+    try:
+        chromadb_collection.delete(where={"filename": file_name})
+    except Exception:
+        # ignore or log
+        pass
+    remove_index_entry(file_name)
+    st.info(f"Embeddings removed for {file_name}")
+
+def sync_embeddings_on_startup(run_now=False, interactive=False):
+    """
+    Check files in PATH and embed missing/modified ones.
+    If interactive=True, shows progress in Streamlit.
+    If run_now=False, returns a summary dict with what needs embedding (no work done).
+    """
+    files_to_embed = []
+    for file_name in os.listdir(PATH):
+        if not file_name.lower().endswith((".xlsx", ".xls")):
+            continue
+        file_path = os.path.join(PATH, file_name)
+        try:
+            mtime = os.path.getmtime(file_path)
+        except Exception:
+            continue
+        if needs_embedding(file_name, mtime):
+            files_to_embed.append((file_name, file_path))
+
+    if not run_now:
+        return {"to_embed": [f for f, _ in files_to_embed], "count": len(files_to_embed)}
+
+    # run embeddings for all found
+    for (fname, fpath) in files_to_embed:
+        if interactive:
+            st.info(f"Embedding {fname} ...")
+        embed_file(fpath, show_streamlit_spinner=interactive)
+
+    # Also remove index entries for files that no longer exist on disk
+    idx = load_embeddings_index()
+    for indexed_file in list(idx.keys()):
+        if not os.path.exists(os.path.join(PATH, indexed_file)):
+            remove_index_entry(indexed_file)
+
+    return {"embedded_count": len(files_to_embed)}
+
+
+
 @st.cache_data
 def load_world_cities():
     return pd.read_csv("assets/worldcities.csv")
@@ -1140,6 +1370,8 @@ def display_col5():
         st.session_state.selected_file = None
     if "filename" not in st.session_state:
         st.session_state.filename = None
+    result = sync_embeddings_on_startup(run_now=True, interactive=True)
+    st.success(f"Embedded {result.get('embedded_count', 0)} file(s)")
     st.header("Upload Data")
     new_data_file = st.file_uploader(
         "Upload an Excel File", type="xlsx", label_visibility="collapsed"
@@ -1306,6 +1538,8 @@ def display_col5():
                     new_data = preprocess_data(final_df)
                     new_data.to_excel(f"{PATH}/{filename}", index=False)
                     st.success("Data concatenated successfully")
+                    saved_path = os.path.join(PATH, filename)
+                    embed_file(saved_path, show_streamlit_spinner=True)
                     # Provide download button for rejected rows
                     dcol, icol = st.columns(2)
                     with dcol:
@@ -1396,7 +1630,7 @@ def display_col5():
                 def confirm_delete():
                     if os.path.exists(st.session_state.file_to_delete):
                         os.remove(st.session_state.file_to_delete)
-
+                    delete_embeddings_for_file(os.path.basename(st.session_state.file_to_delete))
                     original_file_name = os.path.basename(st.session_state.file_to_delete)
                     original_file_path = os.path.join(ORIGINAL_FILES_PATH, original_file_name)
                     if os.path.exists(original_file_path):
