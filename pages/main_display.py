@@ -760,6 +760,14 @@ def main_display(user_type, user_email):
 
     # Logout Handling
     st.sidebar.button("Logout", use_container_width=True,on_click=logout,args=(user_type,))
+
+    # Chatbot navigation
+    def move_to_chatbot():
+        st.session_state["__goto_chatbot__"] = True
+
+    st.sidebar.button("Chatbot", use_container_width=True, on_click=move_to_chatbot)
+    if st.session_state.pop("__goto_chatbot__", False):
+        st.switch_page("pages/chatbot.py")
     # Perform conditional rendering based on the updated state
     files_signature = get_files_signature(PATH)
     data = load_data(files_signature, PATH)
